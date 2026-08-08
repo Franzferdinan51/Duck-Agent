@@ -19,7 +19,7 @@ echo "========================================"
 echo ""
 
 # 1. Python tests
-echo "[1/10] Running Python backend module tests..."
+echo "[1/11] Running Python backend module tests..."
 echo "-----------------------------------"
 RESULT=$(python3 -m unittest tests.test_backends 2>&1)
 if echo "$RESULT" | grep -q "^OK$"; then
@@ -35,7 +35,7 @@ fi
 echo ""
 
 # 2. Python E2E tests
-echo "[2/10] Running Python E2E tests..."
+echo "[2/11] Running Python E2E tests..."
 echo "-----------------------------------"
 RESULT=$(python3 -m unittest tests.test_e2e_backend 2>&1)
 if echo "$RESULT" | grep -q "^OK$"; then
@@ -51,7 +51,7 @@ fi
 echo ""
 
 # 3. TypeScript backend loader tests
-echo "[3/10] Running TypeScript backend loader tests..."
+echo "[3/11] Running TypeScript backend loader tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-index.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -67,7 +67,7 @@ fi
 echo ""
 
 # 4. TypeScript harness tests
-echo "[4/10] Running TypeScript harness tests..."
+echo "[4/11] Running TypeScript harness tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-harness.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -83,7 +83,7 @@ fi
 echo ""
 
 # 5. TypeScript integration tests
-echo "[5/10] Running TypeScript integration tests..."
+echo "[5/11] Running TypeScript integration tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-integration.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -99,7 +99,7 @@ fi
 echo ""
 
 # 6. TypeScript API client tests
-echo "[6/10] Running TypeScript API client tests..."
+echo "[6/11] Running TypeScript API client tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-api-client.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -115,7 +115,7 @@ fi
 echo ""
 
 # 7. TypeScript MCP server tests
-echo "[7/10] Running TypeScript MCP server tests..."
+echo "[7/11] Running TypeScript MCP server tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-mcp.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -131,7 +131,7 @@ fi
 echo ""
 
 # 8. TypeScript skill manager tests
-echo "[8/10] Running TypeScript skill manager tests..."
+echo "[8/11] Running TypeScript skill manager tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-skills.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -147,7 +147,7 @@ fi
 echo ""
 
 # 9. TypeScript session manager tests
-echo "[9/10] Running TypeScript session manager tests..."
+echo "[9/11] Running TypeScript session manager tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-sessions.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -163,7 +163,7 @@ fi
 echo ""
 
 # 10. TypeScript orchestration tests
-echo "[10/10] Running TypeScript orchestration tests..."
+echo "[10/11] Running TypeScript orchestration tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-orchestration.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -174,6 +174,22 @@ if echo "$RESULT" | grep -q "0 failed"; then
     TOTAL_TS=$((TOTAL_TS+COUNT))
 else
     echo "TypeScript orchestration tests: FAIL"
+    FAIL=$((FAIL+1))
+fi
+echo ""
+
+# 11. Full system integration tests
+echo "[11/11] Running full system integration tests..."
+echo "-----------------------------------"
+RESULT=$(npx tsx backends/tests/test-full-integration.ts 2>&1 | tail -5)
+echo "$RESULT"
+if echo "$RESULT" | grep -q "0 failed"; then
+    echo "Full integration tests: PASS"
+    PASS=$((PASS+1))
+    COUNT=$(echo "$RESULT" | grep -oE "[0-9]+ passed" | grep -oE "[0-9]+")
+    TOTAL_TS=$((TOTAL_TS+COUNT))
+else
+    echo "Full integration tests: FAIL"
     FAIL=$((FAIL+1))
 fi
 echo ""
