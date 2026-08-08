@@ -1,6 +1,5 @@
 /**
- * Tests for the Duck Agent MCP server manager.
- * 
+ * Tests for the Duck Agent MCP/tool manager.
  * Run with: npx tsx backends/tests/test-mcp.ts
  */
 
@@ -22,118 +21,91 @@ async function test(name: string, fn: () => void | Promise<void>) {
 }
 
 function assertEqual<T>(actual: T, expected: T, msg = ''): void {
-  if (actual !== expected) {
-    throw new Error(`${msg}Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
-  }
+  if (actual !== expected) throw new Error(`${msg}Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
 }
 
-async function assertTrue(value: boolean, msg = ''): Promise<void> {
-  if (!value) {
-    throw new Error(`${msg}Expected true, got ${value}`)
-  }
+function assertTrue(value: boolean, msg = ''): void {
+  if (!value) throw new Error(`${msg}Expected true, got ${value}`)
 }
 
-console.log('Duck Agent MCP Server Tests')
+console.log('Duck Agent MCP / Tool Tests')
 console.log('===========================')
 
 await test('creates new MCP manager', () => {
-  const manager = new MCPServerManager()
-  assertTrue(manager !== null)
+  assertTrue(new MCPServerManager() !== null)
 })
 
-await test('registers a server', () => {
+await test('registers and unregisters a server', () => {
   const manager = new MCPServerManager()
-  manager.registerServer({
-    name: 'test-server',
-    command: 'test-cmd',
-    args: [],
-  })
+  manager.registerServer({ name: 'test-server', command: 'test-cmd', args: [] })
   assertEqual(manager.getServers().length, 1)
-})
-
-await test('unregisters a server', () => {
-  const manager = new MCPServerManager()
-  manager.registerServer({
-    name: 'test-server',
-    command: 'test-cmd',
-    args: [],
-  })
   manager.unregisterServer('test-server')
   assertEqual(manager.getServers().length, 0)
 })
 
-await test('registers tools', () => {
+await test('registers metadata-only tools', () => {
   const manager = new MCPServerManager()
-  manager.registerServer({
-    name: 'test-server',
-    command: 'test-cmd',
-    args: [],
-  })
+  manager.registerServer({ name: 'test-server', command: 'test-cmd', args: [] })
   manager.registerTools('test-server', [
-    {
-      name: 'test-tool',
-      description: 'A test tool',
-      inputSchema: {},
-    },
+    { name: 'test-tool', description: 'A test tool', inputSchema: { type: 'object' } },
   ])
   assertEqual(manager.getAllTools().length, 1)
 })
 
-await test('finds a tool by name', () => {
+await test('executes a registered tool handler', async () => {
   const manager = new MCPServerManager()
-  manager.registerServer({
-    name: 'test-server',
-    command: 'test-cmd',
-    args: [],
-  })
+  manager.registerServer({ name: 'test-server', command: 'test-cmd', args: [] })
+  manager.registerTool(
+    'test-server',
+    { name: 'echo', description: 'Echo a value', inputSchema: { type: 'object' } },
+    async args => ({ content: [{ type: 'text', text: String(args.value) }] }),
+  )
+
+  const result = await manager.callTool('echo', { value: 'hello' })
+  assertEqual(result.content[0]?.text, 'hello')
+})
+
+await test('does not fake execution for metadata-only tools', async () => {
+  const manager = new MCPServerManager()
+  manager.registerServer({ name: 'test-server', command: 'test-cmd', args: [] })
   manager.registerTools('test-server', [
-    { name: 'tool1', description: 'Tool 1', inputSchema: {} },
-    { name: 'tool2', description: 'Tool 2', inputSchema: {} },
+    { name: 'metadata-only', description: 'No transport', inputSchema: {} },
   ])
-  const found = manager.findTool('tool2')
-  if (!found) throw new Error('Should find tool')
-  assertEqual(found.tool.name, 'tool2')
-  assertEqual(found.server, 'test-server')
-})
 
-await test('returns null for unknown tool', () => {
-  const manager = new MCPServerManager()
-  const found = manager.findTool('unknown')
-  if (found !== null) throw new Error('Should return null')
-})
-
-await test('calls a tool', async () => {
-  const manager = new MCPServerManager()
-  manager.registerServer({
-    name: 'test-server',
-    command: 'test-cmd',
-    args: [],
-  })
-  manager.registerTools('test-server', [
-    { name: 'test-tool', description: 'Test', inputSchema: {} },
-  ])
-  const result = await manager.callTool('test-tool', { foo: 'bar' })
-  assertEqual(result.isError, undefined)
-  assertTrue(result.content.length > 0)
-})
-
-await test('throws when calling unknown tool', async () => {
-  const manager = new MCPServerManager()
   let threw = false
   try {
-    await manager.callTool('unknown', {})
-  } catch (err) {
+    await manager.callTool('metadata-only', {})
+  } catch {
     threw = true
   }
-  await assertTrue(threw, 'Should throw')
+  assertTrue(threw, 'Metadata-only tools must not pretend to execute')
 })
 
-await test('tracks enabled servers', () => {
+await test('returns tool errors as observations', async () => {
   const manager = new MCPServerManager()
-  manager.registerServer({ name: 'enabled', command: 'cmd', args: [], enabled: true })
+  manager.registerServer({ name: 'test-server', command: 'test-cmd', args: [] })
+  manager.registerTool(
+    'test-server',
+    { name: 'fails', description: 'Always fails', inputSchema: {} },
+    async () => {
+      throw new Error('boom')
+    },
+  )
+  const result = await manager.callTool('fails', {})
+  assertEqual(result.isError, true)
+  assertTrue(result.content[0]?.text?.includes('boom') === true)
+})
+
+await test('disabled servers hide their tools', () => {
+  const manager = new MCPServerManager()
   manager.registerServer({ name: 'disabled', command: 'cmd', args: [], enabled: false })
-  assertEqual(manager.getEnabledServers().length, 1)
-  assertEqual(manager.getEnabledServers()[0].name, 'enabled')
+  manager.registerTool(
+    'disabled',
+    { name: 'hidden', description: 'Hidden', inputSchema: {} },
+    async () => ({ content: [{ type: 'text', text: 'nope' }] }),
+  )
+  assertEqual(manager.getAllTools().length, 0)
+  assertEqual(manager.findTool('hidden'), null)
 })
 
 await test('returns stats', () => {
@@ -150,18 +122,18 @@ await test('returns stats', () => {
   assertEqual(stats.toolCount, 2)
 })
 
-await test('singleton manager has built-in servers', () => {
+await test('singleton manager has built-in server definitions', () => {
   const m1 = getMCPManager()
   const m2 = getMCPManager()
-  if (m1 !== m2) throw new Error('Should be singleton')
-  if (m1.getServers().length === 0) throw new Error('Should have built-in servers')
+  assertTrue(m1 === m2)
+  assertTrue(m1.getServers().length > 0)
 })
 
 await test('built-in servers are defined', () => {
-  if (BUILTIN_MCP_SERVERS.length === 0) throw new Error('Should have built-in servers')
+  assertTrue(BUILTIN_MCP_SERVERS.length > 0)
   for (const server of BUILTIN_MCP_SERVERS) {
-    if (!server.name) throw new Error('Server missing name')
-    if (!server.command) throw new Error('Server missing command')
+    assertTrue(Boolean(server.name))
+    assertTrue(Boolean(server.command))
   }
 })
 

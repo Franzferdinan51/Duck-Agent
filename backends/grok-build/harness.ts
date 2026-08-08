@@ -1,18 +1,25 @@
 /**
  * Duck Agent - Grok Build Harness
- * 
- * This module provides the core integration with Grok Build as the
- * primary agent harness for Duck Agent.
+ *
+ * Grok Build is the primary reasoning harness. This class owns a bounded
+ * reason -> act -> observe loop and feeds tool results back into the model.
  */
 
 import { loadConfig, type GrokBuildConfig } from './config'
+import {
+  GrokBuildAPIClient,
+  type GrokMessage,
+  type GrokToolDefinition,
+} from './api-client'
+import { getMCPManager } from '../mcp/server'
 
-export type BackendStatus = 'idle' | 'starting' | 'ready' | 'error' | 'stopped'
+export type BackendStatus = 'idle' | 'starting' | 'ready' | 'running' | 'error' | 'stopped'
 
 export interface AgentMessage {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
   timestamp?: number
+  toolCallId?: string
 }
 
 export interface AgentResponse {
@@ -23,36 +30,37 @@ export interface AgentResponse {
 }
 
 export interface ToolCall {
+  id?: string
   name: string
   arguments: Record<string, unknown>
 }
 
-/**
- * Grok Build Harness
- * 
- * Primary agent harness integration for Duck Agent.
- */
+export interface AgentRunOptions {
+  systemPrompt?: string
+  maxSteps?: number
+}
+
+const DEFAULT_SYSTEM_PROMPT = `You are Duck Agent, an autonomous desktop AI agent powered by the Grok Build harness.
+Work toward the user's goal until it is actually complete. Use tools when they are needed. Treat tool output as observations, recover from errors when possible, and do not claim an action happened unless a tool result confirms it. When the goal is complete, return a concise final result.`
+
 export class GrokBuildHarness {
   private config: GrokBuildConfig
   private status: BackendStatus = 'idle'
   private messageHistory: AgentMessage[] = []
+  private client: GrokBuildAPIClient
+  private cancelled = false
 
   constructor(config?: Partial<GrokBuildConfig>) {
     this.config = { ...loadConfig(), ...config }
+    this.client = new GrokBuildAPIClient(this.config)
   }
 
-  /**
-   * Start the Grok Build harness
-   */
   async start(): Promise<void> {
     this.status = 'starting'
     try {
-      // Initialize Grok Build harness
-      // In a full implementation, this would connect to the Grok Build API
-      console.log('[Duck Agent] Starting Grok Build harness...')
-      console.log('[Duck Agent] Endpoint:', this.config.apiEndpoint)
-      console.log('[Duck Agent] Model:', this.config.defaultModel)
-      
+      if (!this.client.isConfigured()) {
+        throw new Error('Grok Build is not configured. Set GROK_API_KEY before starting the harness.')
+      }
       this.status = 'ready'
     } catch (error) {
       this.status = 'error'
@@ -60,71 +68,180 @@ export class GrokBuildHarness {
     }
   }
 
-  /**
-   * Stop the harness
-   */
   async stop(): Promise<void> {
+    this.cancelled = true
     this.status = 'stopped'
-    this.messageHistory = []
+  }
+
+  cancel(): void {
+    this.cancelled = true
   }
 
   /**
-   * Send a message to the agent
+   * Backward-compatible chat entry point. It now uses the real autonomous run
+   * path so callers do not accidentally bypass tool use and multi-step work.
    */
   async sendMessage(content: string): Promise<AgentResponse> {
+    return this.runGoal(content)
+  }
+
+  /** Execute a bounded autonomous agent run. */
+  async runGoal(goal: string, options: AgentRunOptions = {}): Promise<AgentResponse> {
     if (this.status !== 'ready') {
       throw new Error(`Harness not ready. Current status: ${this.status}`)
     }
 
-    const message: AgentMessage = {
-      role: 'user',
-      content,
-      timestamp: Date.now()
-    }
+    this.cancelled = false
+    this.status = 'running'
 
-    this.messageHistory.push(message)
+    const maxSteps = options.maxSteps ?? this.config.maxAgentSteps ?? 24
+    const mcp = getMCPManager()
+    const tools: GrokToolDefinition[] = this.config.enableMcpTools
+      ? mcp.getAllTools().map(tool => ({
+          type: 'function' as const,
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.inputSchema,
+          },
+        }))
+      : []
 
-    // In a full implementation, this would call the Grok Build API
-    // For now, return a placeholder response
-    return {
-      content: `[Duck Agent via Grok Build] Received: ${content}`,
-      status: 'complete',
-      metadata: {
-        backend: 'grok-build',
-        model: this.config.defaultModel,
-        timestamp: Date.now()
+    const transcript: GrokMessage[] = [
+      { role: 'system', content: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT },
+      ...this.messageHistory.map(message => this.toGrokMessage(message)),
+      { role: 'user', content: goal },
+    ]
+
+    this.messageHistory.push({ role: 'user', content: goal, timestamp: Date.now() })
+
+    const usedTools: ToolCall[] = []
+
+    try {
+      for (let step = 1; step <= maxSteps; step++) {
+        if (this.cancelled) {
+          this.status = 'ready'
+          return {
+            content: 'Agent run cancelled.',
+            status: 'error',
+            metadata: { backend: 'grok-build', cancelled: true, steps: step - 1 },
+          }
+        }
+
+        const response = await this.client.chat({
+          messages: transcript,
+          model: this.config.defaultModel || 'grok-3',
+          stream: false,
+          tools: tools.length ? tools : undefined,
+          tool_choice: tools.length ? 'auto' : undefined,
+        })
+
+        const assistant = response.choices[0]?.message
+        if (!assistant) throw new Error('Grok Build returned no assistant message')
+
+        transcript.push(assistant)
+
+        const toolCalls = assistant.tool_calls ?? []
+        if (toolCalls.length === 0) {
+          const finalContent = assistant.content || ''
+          this.messageHistory.push({
+            role: 'assistant',
+            content: finalContent,
+            timestamp: Date.now(),
+          })
+          this.status = 'ready'
+          return {
+            content: finalContent,
+            tools: usedTools,
+            status: 'complete',
+            metadata: {
+              backend: 'grok-build',
+              model: response.model,
+              steps: step,
+              usage: response.usage,
+            },
+          }
+        }
+
+        for (const call of toolCalls) {
+          const args = this.parseToolArguments(call.function.arguments)
+          usedTools.push({ id: call.id, name: call.function.name, arguments: args })
+
+          const result = await mcp.callTool(call.function.name, args)
+          const observation = JSON.stringify(result)
+
+          transcript.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: observation,
+          })
+          this.messageHistory.push({
+            role: 'tool',
+            toolCallId: call.id,
+            content: observation,
+            timestamp: Date.now(),
+          })
+        }
+      }
+
+      this.status = 'ready'
+      return {
+        content: `Agent stopped after reaching the ${maxSteps}-step safety limit before producing a final answer.`,
+        tools: usedTools,
+        status: 'error',
+        metadata: { backend: 'grok-build', maxStepsReached: true, steps: maxSteps },
+      }
+    } catch (error) {
+      this.status = 'error'
+      return {
+        content: error instanceof Error ? error.message : String(error),
+        tools: usedTools,
+        status: 'error',
+        metadata: { backend: 'grok-build' },
       }
     }
   }
 
-  /**
-   * Get current harness status
-   */
   getStatus(): BackendStatus {
     return this.status
   }
 
-  /**
-   * Get message history
-   */
   getHistory(): AgentMessage[] {
     return [...this.messageHistory]
   }
 
-  /**
-   * Clear message history
-   */
   clearHistory(): void {
     this.messageHistory = []
   }
+
+  private parseToolArguments(value: string): Record<string, unknown> {
+    if (!value.trim()) return {}
+    try {
+      const parsed = JSON.parse(value)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+      return { value: parsed }
+    } catch {
+      return { raw: value }
+    }
+  }
+
+  private toGrokMessage(message: AgentMessage): GrokMessage {
+    if (message.role === 'tool') {
+      return {
+        role: 'tool',
+        content: message.content,
+        ...(message.toolCallId ? { tool_call_id: message.toolCallId } : {}),
+      }
+    }
+    return { role: message.role, content: message.content }
+  }
 }
 
-// Export singleton instance
 let harnessInstance: GrokBuildHarness | null = null
 
 export function getHarness(config?: Partial<GrokBuildConfig>): GrokBuildHarness {
-  if (!harnessInstance) {
-    harnessInstance = new GrokBuildHarness(config)
-  }
+  if (!harnessInstance) harnessInstance = new GrokBuildHarness(config)
   return harnessInstance
 }
