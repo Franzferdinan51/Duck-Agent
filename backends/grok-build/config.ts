@@ -1,24 +1,18 @@
-/**
- * Duck Agent - Grok Build Backend Configuration
- */
+/** Duck Agent - Grok Build Backend Configuration */
 
 export interface GrokBuildConfig {
-  /** Grok Build-compatible API endpoint */
   apiEndpoint?: string
-  /** API key */
   apiKey?: string
-  /** Default model */
   defaultModel?: string
-  /** Expose registered MCP/local tools to the model */
   enableMcpTools?: boolean
-  /** Enable streaming when the runtime has a streaming transport */
   streamingEnabled?: boolean
-  /** Maximum concurrent tool executions */
   maxConcurrentTools?: number
-  /** Maximum reason/action/observation iterations in one run */
   maxAgentSteps?: number
-  /** Request timeout in milliseconds */
   timeoutMs?: number
+  /** Retries for transient HTTP/network failures. */
+  requestRetries?: number
+  /** Base delay for exponential retry backoff. */
+  retryBaseDelayMs?: number
 }
 
 export const DEFAULT_CONFIG: GrokBuildConfig = {
@@ -29,7 +23,9 @@ export const DEFAULT_CONFIG: GrokBuildConfig = {
   streamingEnabled: true,
   maxConcurrentTools: 5,
   maxAgentSteps: Number(process.env.DUCK_AGENT_MAX_STEPS || 24),
-  timeoutMs: 60000,
+  timeoutMs: Number(process.env.GROK_REQUEST_TIMEOUT_MS || 60_000),
+  requestRetries: Number(process.env.GROK_REQUEST_RETRIES || 2),
+  retryBaseDelayMs: Number(process.env.GROK_RETRY_BASE_DELAY_MS || 350),
 }
 
 export function loadConfig(): GrokBuildConfig {
@@ -39,5 +35,8 @@ export function loadConfig(): GrokBuildConfig {
     apiKey: process.env.GROK_API_KEY || DEFAULT_CONFIG.apiKey,
     defaultModel: process.env.GROK_MODEL || DEFAULT_CONFIG.defaultModel,
     maxAgentSteps: Number(process.env.DUCK_AGENT_MAX_STEPS || DEFAULT_CONFIG.maxAgentSteps),
+    timeoutMs: Number(process.env.GROK_REQUEST_TIMEOUT_MS || DEFAULT_CONFIG.timeoutMs),
+    requestRetries: Number(process.env.GROK_REQUEST_RETRIES || DEFAULT_CONFIG.requestRetries),
+    retryBaseDelayMs: Number(process.env.GROK_RETRY_BASE_DELAY_MS || DEFAULT_CONFIG.retryBaseDelayMs),
   }
 }
