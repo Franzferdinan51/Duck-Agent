@@ -1,0 +1,68 @@
+name: Duck Agent Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    name: Python Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Python tests
+        run: |
+          python3 -m unittest tests.test_backends -v
+
+  typescript-tests:
+    name: TypeScript Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Run backend loader tests
+        run: npx tsx backends/tests/test-index.ts
+
+      - name: Run harness tests
+        run: npx tsx backends/tests/test-harness.ts
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Run all tests
+        run: bash run_all_tests.sh
