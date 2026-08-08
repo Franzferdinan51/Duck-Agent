@@ -18,6 +18,7 @@ import {
 import { BrandMark } from '../components/brand-mark'
 import { AgentRunPanel } from '../components/agent-run-panel'
 import { RuntimeInspector } from '../components/runtime-inspector'
+import { DuckAgentBackendSettings } from './settings/duck-agent-backend-settings'
 import type { AgentRun, NavKey, Session } from './types'
 
 const sessions: Session[] = [
@@ -83,7 +84,7 @@ export function DuckAgentApp() {
           </div>
         </div>
 
-        <button className="new-task" type="button" onClick={() => setComposer('')}>
+        <button className="new-task" type="button" onClick={() => { setActive('chat'); setComposer('') }}>
           <IconPlus size={17} />
           New goal
           <span>⌘N</span>
@@ -109,7 +110,7 @@ export function DuckAgentApp() {
         </label>
         <div className="session-list">
           {filteredSessions.map((session) => (
-            <button key={session.id} type="button" className="session-row">
+            <button key={session.id} type="button" className="session-row" onClick={() => setActive('chat')}>
               <span className={`status-dot ${session.status}`} />
               <span className="session-copy"><strong>{session.title}</strong><small>{session.time}</small></span>
               <IconChevronRight size={14} />
@@ -118,8 +119,8 @@ export function DuckAgentApp() {
         </div>
 
         <div className="sidebar-footer">
-          <button type="button"><IconTerminal2 size={18} /> Terminal</button>
-          <button type="button" onClick={() => setActive('settings')}><IconSettings size={18} /> Settings</button>
+          <button type="button" onClick={() => setActive('workspace')}><IconTerminal2 size={18} /> Terminal</button>
+          <button type="button" className={active === 'settings' ? 'active' : ''} onClick={() => setActive('settings')}><IconSettings size={18} /> Settings</button>
         </div>
       </aside>
 
@@ -132,6 +133,8 @@ export function DuckAgentApp() {
         <section className="work-content">
           {active === 'chat' || active === 'goals' ? (
             <AgentRunPanel run={run} />
+          ) : active === 'settings' ? (
+            <DuckAgentBackendSettings />
           ) : (
             <FeatureSurface active={active} />
           )}
@@ -173,9 +176,8 @@ function FeatureSurface({ active }: { active: NavKey }) {
     memory: { title: 'Memory', copy: 'Working context and durable project knowledge belong to the runtime, not a single model turn.', items: [['Working memory', 'Active'], ['Project facts', '12 items'], ['Pinned context', '3 items'], ['Retention policy', 'Review']] },
     skills: { title: 'Skills', copy: 'Reusable instructions and workflows that Duck Agent can select while completing goals.', items: [['Coding', 'Enabled'], ['Web research', 'Enabled'], ['File operations', 'Enabled'], ['Task planning', 'Enabled']] },
     workspace: { title: 'Workspace', copy: 'Files, repository state, artifacts, and terminal sessions stay attached to the active task.', items: [['Repository', 'Duck-Agent'], ['Branch', 'main'], ['Artifacts', '0'], ['Terminal sessions', '1']] },
-    settings: { title: 'Settings', copy: 'Configure the primary harness, autonomy, approvals, tools, and local runtime behavior.', items: [['Primary harness', 'Grok Build'], ['Agent step limit', '24'], ['Approval policy', 'Balanced'], ['Streaming events', 'Enabled']] },
   }
-  const surface = content[active] ?? content.settings
+  const surface = content[active] ?? content.workspace
   return (
     <div className="feature-page">
       <div className="page-kicker">Duck Agent runtime</div>
