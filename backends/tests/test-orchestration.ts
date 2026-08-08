@@ -36,6 +36,7 @@ async function assertTrue(value: boolean, msg = ''): Promise<void> {
 console.log('Duck Agent Workflow Manager Tests')
 console.log('=================================')
 
+async function main() {
 await test('creates new workflow manager', () => {
   const manager = new WorkflowManager()
   assertTrue(manager !== null)
@@ -241,4 +242,10 @@ await test('singleton manager', () => {
 
 console.log('\n=================================')
 console.log(`Results: ${passCount} passed, ${failCount} failed`)
-process.exit(failCount > 0 ? 1 : 0)
+process.exitCode = failCount > 0 ? 1 : 0
+}
+
+main().catch(error => {
+  console.error(error)
+  process.exitCode = 1
+})
