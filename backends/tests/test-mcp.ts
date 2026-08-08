@@ -31,6 +31,7 @@ function assertTrue(value: boolean, msg = ''): void {
 console.log('Duck Agent MCP / Tool Tests')
 console.log('===========================')
 
+async function main() {
 await test('creates new MCP manager', () => {
   assertTrue(new MCPServerManager() !== null)
 })
@@ -139,4 +140,10 @@ await test('built-in servers are defined', () => {
 
 console.log('\n===========================')
 console.log(`Results: ${passCount} passed, ${failCount} failed`)
-process.exit(failCount > 0 ? 1 : 0)
+process.exitCode = failCount > 0 ? 1 : 0
+}
+
+main().catch(error => {
+  console.error(error)
+  process.exitCode = 1
+})
