@@ -35,9 +35,26 @@ async function assertTrue(value: boolean, msg = ''): Promise<void> {
   }
 }
 
+function makeResponse(content: string) {
+  return new Response(JSON.stringify({
+    id: 'integration-test',
+    object: 'chat.completion',
+    created: 0,
+    model: 'grok-test',
+    choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+}
+
 console.log('Duck Agent Integration Tests')
 console.log('============================')
 
+async function main() {
+  const originalFetch = globalThis.fetch
+  const originalKey = process.env.GROK_API_KEY
+  process.env.GROK_API_KEY = 'test-key'
+  globalThis.fetch = async () => makeResponse('offline integration response')
+
+  try {
 await test('config loads with defaults', () => {
   const config = loadConfig()
   if (!config.apiEndpoint) throw new Error('Missing apiEndpoint')
@@ -93,8 +110,17 @@ await test('harness handles multiple messages', async () => {
   await harness.sendMessage('msg3')
   
   const history = harness.getHistory()
-  assertEqual(history.length, 3)
-  
+  assertEqual(history.length, 6)
+  assertEqual(history[0].role, 'user')
+  assertEqual(history[0].content, 'msg1')
+  assertEqual(history[1].role, 'assistant')
+  assertEqual(history[2].role, 'user')
+  assertEqual(history[2].content, 'msg2')
+  assertEqual(history[3].role, 'assistant')
+  assertEqual(history[4].role, 'user')
+  assertEqual(history[4].content, 'msg3')
+  assertEqual(history[5].role, 'assistant')
+
   await harness.stop()
 })
 
@@ -156,4 +182,15 @@ await test('harness supports different roles', async () => {
 
 console.log('\n============================')
 console.log(`Results: ${passCount} passed, ${failCount} failed`)
-process.exit(failCount > 0 ? 1 : 0)
+process.exitCode = failCount > 0 ? 1 : 0
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalKey === undefined) delete process.env.GROK_API_KEY
+    else process.env.GROK_API_KEY = originalKey
+  }
+}
+
+main().catch(error => {
+  console.error(error)
+  process.exitCode = 1
+})
