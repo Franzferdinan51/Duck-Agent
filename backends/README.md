@@ -1,12 +1,83 @@
-# Duck Agent Backends
+# Duck Agent Runtime / Backends
 
-Duck Agent is being built around a multi-backend architecture so the user-facing shell does not have to be permanently tied to one agent harness.
+Duck Agent is built around **Grok Build as the primary agent harness**. The backend boundary exists so the runtime stays clean and future providers can be added, but the project should not be designed as three equal backend products.
 
-> **Development status:** backend support is actively evolving. The repository currently contains backend-selection and orchestration scaffolding alongside in-progress integrations. The names below describe the intended backend modes; they should not be interpreted as a guarantee that every backend is feature-complete.
+The target behavior is similar in spirit to Hermes Agent or OpenClaw: accept a goal, reason, call tools, observe results, recover from failures, and continue until the goal is complete.
 
-## Backend selection
+## Runtime layers
 
-The launcher reads `DUCK_AGENT_BACKEND` and currently recognizes:
+```text
+Desktop / CLI
+    │
+    ▼
+Duck Agent runtime
+    ├── goal/task state
+    ├── session state
+    ├── tool registry
+    ├── MCP transports
+    ├── skills
+    ├── workflow orchestration
+    ├── approvals
+    └── run events
+    │
+    ▼
+Grok Build harness (PRIMARY)
+    ├── reasoning/model calls
+    ├── tool selection
+    ├── iterative agent loop
+    └── model context
+```
+
+## Grok Build
+
+`backends/grok-build/` is the main harness implementation.
+
+The harness now has a bounded autonomous loop that can:
+
+1. send the current goal/context to the Grok Build-compatible API,
+2. expose registered tools as function definitions,
+3. receive tool calls,
+4. execute them through the runtime tool manager,
+5. append observations back into the model context,
+6. repeat until the model returns a final response or the safety step limit is reached.
+
+This is the core behavior Duck Agent needs to grow into a real agent rather than a one-shot chat wrapper.
+
+### Configuration
+
+```bash
+GROK_API_KEY=...
+GROK_API_ENDPOINT=...
+GROK_MODEL=...
+DUCK_AGENT_MAX_STEPS=24
+DUCK_AGENT_BACKEND=grok-build
+```
+
+## MCP / tools
+
+`backends/mcp/` is the runtime-facing tool registry.
+
+Tools should only be exposed to the model when they have a real executable handler/transport. Metadata-only placeholder tools must not pretend that an action happened.
+
+The next transport work should connect real MCP stdio/HTTP servers, discover their tools, and register executable handlers with the manager.
+
+## Orchestration
+
+`backends/orchestration/` manages multi-step workflows and dependency-aware execution. It should complement the model-driven agent loop rather than replace it.
+
+Use deterministic workflows where dependencies are known; use the Grok Build loop where the agent must decide what action to take next.
+
+## Sessions
+
+Agent state must eventually be persisted outside the harness so runs can survive UI boundaries and process restarts. In-memory chat history is only a temporary implementation detail.
+
+## Skills
+
+Skills should provide reusable instructions/workflows that the runtime can load into a task without baking every behavior into the model system prompt.
+
+## Compatibility modes
+
+The launcher currently recognizes:
 
 ```text
 grok-build
@@ -14,87 +85,26 @@ hermes-compatible
 prime-agent
 ```
 
-Example:
+- `grok-build` — primary/default product path.
+- `hermes-compatible` — compatibility path while preserving/reusing Hermes-derived behavior.
+- `prime-agent` — experimental path.
 
-```bash
-DUCK_AGENT_BACKEND=grok-build ./duck-agent
-```
+Do not weaken the Grok Build architecture just to force every compatibility backend into the same lowest-common-denominator feature set.
 
-You can inspect the launcher configuration with:
+## Definition of done for the runtime
 
-```bash
-./duck-agent --backends
-./duck-agent --status
-```
+A production-ready Duck Agent run should be able to:
 
-## Current backend modes
+- accept a goal,
+- persist a run/session,
+- plan or choose the next action,
+- invoke real tools,
+- feed tool results back to the model,
+- retry/recover from failures,
+- request approval when required,
+- stream structured progress to the desktop UI,
+- cancel cleanly,
+- resume where appropriate,
+- and stop only when the goal is complete or an explicit safety/resource limit is reached.
 
-### Grok Build
-
-The default backend name and primary integration target in the current launcher.
-
-```bash
-DUCK_AGENT_BACKEND=grok-build ./duck-agent
-```
-
-Grok-related configuration currently exposed by the launcher includes:
-
-```bash
-GROK_API_KEY=...
-GROK_MODEL=...
-```
-
-### Hermes-Compatible
-
-A compatibility mode intended for Hermes-style agent workflows.
-
-```bash
-DUCK_AGENT_BACKEND=hermes-compatible ./duck-agent
-```
-
-### Prime Agent
-
-An experimental backend mode intended for Prime Intellect / RLM-oriented agent work.
-
-```bash
-DUCK_AGENT_BACKEND=prime-agent ./duck-agent
-```
-
-## Where the backend code lives
-
-There are currently two relevant layers:
-
-```text
-Duck-Agent/
-├── backends/                 # TypeScript backend/orchestration implementation work
-│   ├── grok-build/
-│   ├── mcp/
-│   ├── orchestration/
-│   ├── sessions/
-│   ├── skills/
-│   └── tests/
-└── duck_agent/
-    └── backends.py           # Python launcher-facing backend selector
-```
-
-The root `duck-agent` shell script provides the CLI-facing backend switch and delegates to `duck_agent/backends.py`.
-
-## Adding or extending a backend
-
-Because this architecture is still under development, keep new backend-specific behavior isolated from the common shell/orchestration layer where possible.
-
-A backend integration will generally need to provide:
-
-1. A stable backend identifier.
-2. Initialization and configuration handling.
-3. Message/task execution.
-4. Status and error reporting.
-5. Tool/MCP integration where supported.
-6. Tests covering selection and runtime behavior.
-7. Documentation describing required credentials and limitations.
-
-## Design direction
-
-The goal is for Duck Agent to provide a common interface over different agent runtimes while allowing each backend to expose its strengths without forcing backend-specific assumptions throughout the application.
-
-This area of the repository is changing quickly. Treat interfaces and backend names as experimental until the project reaches a stable release.
+That is the standard new runtime work should be measured against.
