@@ -19,9 +19,9 @@ echo "========================================"
 echo ""
 
 # 1. Python tests
-echo "[1/11] Running Python backend module tests..."
+echo "[1/10] Running Python backend tests..."
 echo "-----------------------------------"
-RESULT=$(python3 -m unittest tests.test_backends 2>&1)
+RESULT=$(python3 -m unittest discover -s tests -p 'test_*.py' 2>&1)
 if echo "$RESULT" | grep -q "^OK$"; then
     echo "Python module tests: PASS"
     PASS=$((PASS+1))
@@ -34,24 +34,8 @@ else
 fi
 echo ""
 
-# 2. Python E2E tests
-echo "[2/11] Running Python E2E tests..."
-echo "-----------------------------------"
-RESULT=$(python3 -m unittest tests.test_e2e_backend 2>&1)
-if echo "$RESULT" | grep -q "^OK$"; then
-    echo "Python E2E tests: PASS"
-    PASS=$((PASS+1))
-    COUNT=$(echo "$RESULT" | grep -oE "Ran [0-9]+ tests" | grep -oE "[0-9]+")
-    TOTAL_PYTHON=$((TOTAL_PYTHON+COUNT))
-    echo "  ($COUNT tests passed)"
-else
-    echo "Python E2E tests: FAIL"
-    FAIL=$((FAIL+1))
-fi
-echo ""
-
-# 3. TypeScript backend loader tests
-echo "[3/11] Running TypeScript backend loader tests..."
+# 2. TypeScript backend loader tests
+echo "[2/10] Running TypeScript backend loader tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-index.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -66,8 +50,8 @@ else
 fi
 echo ""
 
-# 4. TypeScript harness tests
-echo "[4/11] Running TypeScript harness tests..."
+# 3. TypeScript harness tests
+echo "[3/10] Running TypeScript harness tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-harness.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -82,8 +66,8 @@ else
 fi
 echo ""
 
-# 5. TypeScript integration tests
-echo "[5/11] Running TypeScript integration tests..."
+# 4. TypeScript integration tests
+echo "[4/10] Running TypeScript integration tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-integration.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -98,8 +82,8 @@ else
 fi
 echo ""
 
-# 6. TypeScript API client tests
-echo "[6/11] Running TypeScript API client tests..."
+# 5. TypeScript API client tests
+echo "[5/10] Running TypeScript API client tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-api-client.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -114,8 +98,8 @@ else
 fi
 echo ""
 
-# 7. TypeScript MCP server tests
-echo "[7/11] Running TypeScript MCP server tests..."
+# 6. TypeScript MCP server tests
+echo "[6/10] Running TypeScript MCP server tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-mcp.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -130,8 +114,8 @@ else
 fi
 echo ""
 
-# 8. TypeScript skill manager tests
-echo "[8/11] Running TypeScript skill manager tests..."
+# 7. TypeScript skill manager tests
+echo "[7/10] Running TypeScript skill manager tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-skills.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -146,8 +130,8 @@ else
 fi
 echo ""
 
-# 9. TypeScript session manager tests
-echo "[9/11] Running TypeScript session manager tests..."
+# 8. TypeScript session manager tests
+echo "[8/10] Running TypeScript session manager tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-sessions.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -162,8 +146,8 @@ else
 fi
 echo ""
 
-# 10. TypeScript orchestration tests
-echo "[10/11] Running TypeScript orchestration tests..."
+# 9. TypeScript orchestration tests
+echo "[9/10] Running TypeScript orchestration tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-orchestration.ts 2>&1 | tail -5)
 echo "$RESULT"
@@ -178,8 +162,8 @@ else
 fi
 echo ""
 
-# 11. Full system integration tests
-echo "[11/11] Running full system integration tests..."
+# 10. Full system integration tests
+echo "[10/10] Running full system integration tests..."
 echo "-----------------------------------"
 RESULT=$(npx tsx backends/tests/test-full-integration.ts 2>&1 | tail -5)
 echo "$RESULT"
