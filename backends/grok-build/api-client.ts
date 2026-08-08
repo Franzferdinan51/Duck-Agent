@@ -1,14 +1,36 @@
 /**
  * Duck Agent - Grok Build REST API Client
- * 
- * Real implementation of the Grok Build API client.
+ *
+ * OpenAI-compatible chat-completions client used by the primary Grok Build
+ * harness. The client exposes tool/function calling primitives so the runtime
+ * can own an iterative agent loop instead of behaving like a one-shot chatbot.
  */
 
 import { loadConfig, type GrokBuildConfig } from './config'
 
+export interface GrokToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
 export interface GrokMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string | null
+  tool_call_id?: string
+  tool_calls?: GrokToolCall[]
+}
+
+export interface GrokToolDefinition {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters: Record<string, unknown>
+  }
 }
 
 export interface GrokChatRequest {
@@ -17,6 +39,8 @@ export interface GrokChatRequest {
   temperature?: number
   max_tokens?: number
   stream?: boolean
+  tools?: GrokToolDefinition[]
+  tool_choice?: 'auto' | 'none'
 }
 
 export interface GrokChatResponse {
@@ -38,11 +62,7 @@ export interface GrokChoice {
   finish_reason: string
 }
 
-/**
- * Grok Build API Client
- * 
- * Real HTTP client for the Grok Build API.
- */
+/** Real HTTP client for the Grok Build-compatible API. */
 export class GrokBuildAPIClient {
   private config: GrokBuildConfig
   private authHeader: string | null = null
@@ -54,56 +74,52 @@ export class GrokBuildAPIClient {
     }
   }
 
-  /**
-   * Check if the API client is configured
-   */
   isConfigured(): boolean {
     return this.authHeader !== null
   }
 
-  /**
-   * Send a chat completion request
-   */
   async chat(request: GrokChatRequest): Promise<GrokChatResponse> {
     if (!this.isConfigured()) {
       throw new Error('Grok Build API key not configured. Set GROK_API_KEY environment variable.')
     }
 
     const url = `${this.config.apiEndpoint}/v1/chat/completions`
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': this.authHeader!,
-      },
-      body: JSON.stringify({
-        model: request.model,
-        messages: request.messages,
-        temperature: request.temperature ?? 0.7,
-        max_tokens: request.max_tokens ?? 2048,
-        stream: request.stream ?? false,
-      }),
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs ?? 60000)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Grok Build API error (${response.status}): ${errorText}`)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: this.authHeader!,
+        },
+        body: JSON.stringify({
+          model: request.model,
+          messages: request.messages,
+          temperature: request.temperature ?? 0.7,
+          max_tokens: request.max_tokens ?? 4096,
+          stream: request.stream ?? false,
+          ...(request.tools?.length ? { tools: request.tools } : {}),
+          ...(request.tools?.length ? { tool_choice: request.tool_choice ?? 'auto' } : {}),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Grok Build API error (${response.status}): ${errorText}`)
+      }
+
+      return (await response.json()) as GrokChatResponse
+    } finally {
+      clearTimeout(timeout)
     }
-
-    return await response.json() as GrokChatResponse
   }
 
-  /**
-   * Simple convenience method for sending a single message
-   */
   async sendMessage(message: string, systemPrompt?: string): Promise<string> {
     const messages: GrokMessage[] = []
-    
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt })
-    }
-    
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
     messages.push({ role: 'user', content: message })
 
     const response = await this.chat({
@@ -114,9 +130,6 @@ export class GrokBuildAPIClient {
     return response.choices[0]?.message?.content || ''
   }
 
-  /**
-   * Get the current configuration
-   */
   getConfig(): GrokBuildConfig {
     return { ...this.config }
   }
@@ -125,8 +138,6 @@ export class GrokBuildAPIClient {
 let clientInstance: GrokBuildAPIClient | null = null
 
 export function getAPIClient(): GrokBuildAPIClient {
-  if (!clientInstance) {
-    clientInstance = new GrokBuildAPIClient()
-  }
+  if (!clientInstance) clientInstance = new GrokBuildAPIClient()
   return clientInstance
 }
