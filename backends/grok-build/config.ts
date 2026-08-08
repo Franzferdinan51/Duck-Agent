@@ -1,29 +1,22 @@
 /**
  * Duck Agent - Grok Build Backend Configuration
- * 
- * This module configures the Grok Build harness as the primary backend
- * for Duck Agent's agent orchestration.
  */
 
 export interface GrokBuildConfig {
-  /** Grok Build API endpoint */
+  /** Grok Build-compatible API endpoint */
   apiEndpoint?: string
-  
-  /** Grok Build API key */
+  /** API key */
   apiKey?: string
-  
-  /** Default model to use */
+  /** Default model */
   defaultModel?: string
-  
-  /** Enable MCP tools */
+  /** Expose registered MCP/local tools to the model */
   enableMcpTools?: boolean
-  
-  /** Enable streaming responses */
+  /** Enable streaming when the runtime has a streaming transport */
   streamingEnabled?: boolean
-  
-  /** Maximum concurrent tools */
+  /** Maximum concurrent tool executions */
   maxConcurrentTools?: number
-  
+  /** Maximum reason/action/observation iterations in one run */
+  maxAgentSteps?: number
   /** Request timeout in milliseconds */
   timeoutMs?: number
 }
@@ -35,7 +28,8 @@ export const DEFAULT_CONFIG: GrokBuildConfig = {
   enableMcpTools: true,
   streamingEnabled: true,
   maxConcurrentTools: 5,
-  timeoutMs: 60000
+  maxAgentSteps: Number(process.env.DUCK_AGENT_MAX_STEPS || 24),
+  timeoutMs: 60000,
 }
 
 export function loadConfig(): GrokBuildConfig {
@@ -43,6 +37,7 @@ export function loadConfig(): GrokBuildConfig {
     ...DEFAULT_CONFIG,
     apiEndpoint: process.env.GROK_API_ENDPOINT || DEFAULT_CONFIG.apiEndpoint,
     apiKey: process.env.GROK_API_KEY || DEFAULT_CONFIG.apiKey,
-    defaultModel: process.env.GROK_MODEL || DEFAULT_CONFIG.defaultModel
+    defaultModel: process.env.GROK_MODEL || DEFAULT_CONFIG.defaultModel,
+    maxAgentSteps: Number(process.env.DUCK_AGENT_MAX_STEPS || DEFAULT_CONFIG.maxAgentSteps),
   }
 }
