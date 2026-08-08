@@ -1,8 +1,9 @@
 /**
- * Duck Agent - MCP Server Integration
- * 
- * Model Context Protocol (MCP) server integration for Duck Agent.
- * Allows the agent to use MCP tools for extended capabilities.
+ * Duck Agent - MCP / Tool Integration
+ *
+ * The manager is the runtime-facing tool registry. Real MCP transports can
+ * populate it, while in-process tools can register executable handlers now.
+ * This keeps Grok Build's agent loop independent from any one transport.
  */
 
 export interface MCPServerConfig {
@@ -34,114 +35,105 @@ export interface MCPToolResult {
   isError?: boolean
 }
 
-/**
- * MCP Server Manager
- * 
- * Manages MCP servers and tool calls for Duck Agent.
- */
+export type MCPToolHandler = (
+  args: Record<string, unknown>,
+) => Promise<MCPToolResult> | MCPToolResult
+
+interface RegisteredTool {
+  server: string
+  tool: MCPTool
+  handler?: MCPToolHandler
+}
+
 export class MCPServerManager {
-  private servers: Map<string, MCPServerConfig>
-  private tools: Map<string, MCPTool[]>
+  private servers = new Map<string, MCPServerConfig>()
+  private tools = new Map<string, RegisteredTool>()
 
-  constructor() {
-    this.servers = new Map()
-    this.tools = new Map()
-  }
-
-  /**
-   * Register an MCP server
-   */
   registerServer(config: MCPServerConfig): void {
-    this.servers.set(config.name, {
-      ...config,
-      enabled: config.enabled ?? true,
-    })
+    this.servers.set(config.name, { ...config, enabled: config.enabled ?? true })
   }
 
-  /**
-   * Unregister an MCP server
-   */
   unregisterServer(name: string): void {
     this.servers.delete(name)
-    this.tools.delete(name)
+    for (const [toolName, entry] of this.tools.entries()) {
+      if (entry.server === name) this.tools.delete(toolName)
+    }
   }
 
-  /**
-   * Get all registered servers
-   */
   getServers(): MCPServerConfig[] {
     return Array.from(this.servers.values())
   }
 
-  /**
-   * Get enabled servers
-   */
   getEnabledServers(): MCPServerConfig[] {
-    return this.getServers().filter(s => s.enabled)
+    return this.getServers().filter(server => server.enabled)
   }
 
-  /**
-   * Register tools from a server
-   */
+  /** Register metadata discovered from an MCP server. */
   registerTools(serverName: string, tools: MCPTool[]): void {
-    this.tools.set(serverName, tools)
+    for (const tool of tools) {
+      const existing = this.tools.get(tool.name)
+      this.tools.set(tool.name, {
+        server: serverName,
+        tool,
+        handler: existing?.handler,
+      })
+    }
   }
 
-  /**
-   * Get all available tools
-   */
+  /** Register an executable tool, useful for local tools and MCP adapters. */
+  registerTool(
+    serverName: string,
+    tool: MCPTool,
+    handler: MCPToolHandler,
+  ): void {
+    this.tools.set(tool.name, { server: serverName, tool, handler })
+  }
+
   getAllTools(): MCPTool[] {
-    const all: MCPTool[] = []
-    for (const [serverName, tools] of this.tools.entries()) {
-      const server = this.servers.get(serverName)
-      if (server?.enabled) {
-        all.push(...tools)
-      }
-    }
-    return all
+    return Array.from(this.tools.values())
+      .filter(entry => this.servers.get(entry.server)?.enabled !== false)
+      .map(entry => entry.tool)
   }
 
-  /**
-   * Find a tool by name
-   */
   findTool(name: string): { server: string; tool: MCPTool } | null {
-    for (const [serverName, tools] of this.tools.entries()) {
-      const tool = tools.find(t => t.name === name)
-      if (tool) {
-        return { server: serverName, tool }
+    const entry = this.tools.get(name)
+    if (!entry) return null
+    if (this.servers.get(entry.server)?.enabled === false) return null
+    return { server: entry.server, tool: entry.tool }
+  }
+
+  async callTool(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const entry = this.tools.get(toolName)
+    if (!entry || this.servers.get(entry.server)?.enabled === false) {
+      throw new Error(`Tool not found or disabled: ${toolName}`)
+    }
+
+    if (!entry.handler) {
+      throw new Error(
+        `Tool ${toolName} is registered but has no executable transport/handler. ` +
+          'Connect the MCP stdio/HTTP transport before exposing this tool to the model.',
+      )
+    }
+
+    try {
+      return await entry.handler(args)
+    } catch (error) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: error instanceof Error ? error.message : String(error),
+          },
+        ],
       }
     }
-    return null
   }
 
-  /**
-   * Call a tool
-   */
-  async callTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult> {
-    const found = this.findTool(toolName)
-    if (!found) {
-      throw new Error(`Tool not found: ${toolName}`)
-    }
-
-    // In a real implementation, this would call the MCP server
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Duck Agent: Tool ${toolName} executed with args ${JSON.stringify(args)}`,
-        },
-      ],
-    }
-  }
-
-  /**
-   * Get statistics
-   */
-  getStats(): {
-    serverCount: number
-    enabledCount: number
-    toolCount: number
-  } {
+  getStats(): { serverCount: number; enabledCount: number; toolCount: number } {
     return {
       serverCount: this.servers.size,
       enabledCount: this.getEnabledServers().length,
@@ -150,26 +142,15 @@ export class MCPServerManager {
   }
 }
 
-// Built-in Duck Agent MCP servers
+/**
+ * Built-in transport definitions. These are configuration targets, not fake
+ * executable tools. A transport adapter must connect them and register the
+ * discovered tools/handlers before the agent can call them.
+ */
 export const BUILTIN_MCP_SERVERS: MCPServerConfig[] = [
-  {
-    name: 'duck-agent-files',
-    command: 'duck-agent-mcp-files',
-    args: [],
-    enabled: true,
-  },
-  {
-    name: 'duck-agent-git',
-    command: 'duck-agent-mcp-git',
-    args: [],
-    enabled: true,
-  },
-  {
-    name: 'duck-agent-web',
-    command: 'duck-agent-mcp-web',
-    args: [],
-    enabled: true,
-  },
+  { name: 'duck-agent-files', command: 'duck-agent-mcp-files', args: [], enabled: true },
+  { name: 'duck-agent-git', command: 'duck-agent-mcp-git', args: [], enabled: true },
+  { name: 'duck-agent-web', command: 'duck-agent-mcp-web', args: [], enabled: true },
 ]
 
 let managerInstance: MCPServerManager | null = null
@@ -177,10 +158,7 @@ let managerInstance: MCPServerManager | null = null
 export function getMCPManager(): MCPServerManager {
   if (!managerInstance) {
     managerInstance = new MCPServerManager()
-    // Register built-in servers
-    for (const server of BUILTIN_MCP_SERVERS) {
-      managerInstance.registerServer(server)
-    }
+    for (const server of BUILTIN_MCP_SERVERS) managerInstance.registerServer(server)
   }
   return managerInstance
 }
