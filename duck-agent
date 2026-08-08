@@ -1,0 +1,54 @@
+#!/bin/bash
+# Duck Agent Launcher
+# A self-improving AI agent powered by Grok Build
+# 
+# Usage:
+#   ./duck-agent [options]
+#   DUCK_AGENT_BACKEND=grok-build ./duck-agent
+#
+# Environment Variables:
+#   DUCK_AGENT_BACKEND   - Backend to use: grok-build, hermes-compatible, prime-agent
+#   GROK_API_KEY        - Grok API key for Grok Build backend
+#   GROK_MODEL          - Model to use (default: grok-3)
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND="${DUCK_AGENT_BACKEND:-grok-build}"
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}Duck Agent${NC} - Powered by Grok Build"
+echo "Backend: ${YELLOW}$BACKEND${NC}"
+echo ""
+
+case "$BACKEND" in
+  grok-build)
+    echo "Initializing Grok Build harness..."
+    exec python3 "$SCRIPT_DIR/run_agent.py" --backend grok-build "$@"
+    ;;
+  hermes-compatible)
+    echo "Initializing Hermes-compatible backend..."
+    exec python3 "$SCRIPT_DIR/run_agent.py" --backend hermes "$@"
+    ;;
+  prime-agent)
+    echo "Initializing Prime Agent backend..."
+    exec "$SCRIPT_DIR/prime-agent.sh" "$@"
+    ;;
+  *)
+    echo -e "${RED}Error: Unknown backend: $BACKEND${NC}"
+    echo ""
+    echo "Available backends:"
+    echo "  grok-build         - Primary harness with full Grok Build capabilities"
+    echo "  hermes-compatible  - Hermes Agent compatibility mode"
+    echo "  prime-agent        - Prime Intellect RLM-based agent"
+    echo ""
+    echo "Usage:"
+    echo "  DUCK_AGENT_BACKEND=grok-build ./duck-agent"
+    exit 1
+    ;;
+esac
