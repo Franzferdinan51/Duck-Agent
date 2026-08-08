@@ -1,16 +1,12 @@
 /**
  * Duck Agent - Grok Build Harness
  *
- * Grok Build is the primary reasoning harness. This class owns a bounded
- * reason -> act -> observe loop and feeds tool results back into the model.
+ * Grok Build is the primary reasoning harness. The runtime owns a bounded
+ * reason -> act -> observe loop and feeds every tool result back to the model.
  */
 
 import { loadConfig, type GrokBuildConfig } from './config'
-import {
-  GrokBuildAPIClient,
-  type GrokMessage,
-  type GrokToolDefinition,
-} from './api-client'
+import { GrokBuildAPIClient, type GrokMessage, type GrokToolDefinition } from './api-client'
 import { getMCPManager } from '../mcp/server'
 
 export type BackendStatus = 'idle' | 'starting' | 'ready' | 'running' | 'error' | 'stopped'
@@ -43,12 +39,17 @@ export interface AgentRunOptions {
 const DEFAULT_SYSTEM_PROMPT = `You are Duck Agent, an autonomous desktop AI agent powered by the Grok Build harness.
 Work toward the user's goal until it is actually complete. Use tools when they are needed. Treat tool output as observations, recover from errors when possible, and do not claim an action happened unless a tool result confirms it. When the goal is complete, return a concise final result.`
 
+const INTERRUPTED_TURN_GUIDANCE = `<turn_aborted>
+The previous turn was interrupted. A tool or command may have partially executed. Re-check relevant state before retrying destructive or non-idempotent work.
+</turn_aborted>`
+
 export class GrokBuildHarness {
   private config: GrokBuildConfig
   private status: BackendStatus = 'idle'
   private messageHistory: AgentMessage[] = []
   private client: GrokBuildAPIClient
   private cancelled = false
+  private interrupted = false
 
   constructor(config?: Partial<GrokBuildConfig>) {
     this.config = { ...loadConfig(), ...config }
@@ -70,26 +71,21 @@ export class GrokBuildHarness {
 
   async stop(): Promise<void> {
     this.cancelled = true
+    this.interrupted = this.status === 'running'
     this.status = 'stopped'
   }
 
   cancel(): void {
     this.cancelled = true
+    this.interrupted = this.status === 'running'
   }
 
-  /**
-   * Backward-compatible chat entry point. It now uses the real autonomous run
-   * path so callers do not accidentally bypass tool use and multi-step work.
-   */
   async sendMessage(content: string): Promise<AgentResponse> {
     return this.runGoal(content)
   }
 
-  /** Execute a bounded autonomous agent run. */
   async runGoal(goal: string, options: AgentRunOptions = {}): Promise<AgentResponse> {
-    if (this.status !== 'ready') {
-      throw new Error(`Harness not ready. Current status: ${this.status}`)
-    }
+    if (this.status !== 'ready') throw new Error(`Harness not ready. Current status: ${this.status}`)
 
     this.cancelled = false
     this.status = 'running'
@@ -99,23 +95,25 @@ export class GrokBuildHarness {
     const tools: GrokToolDefinition[] = this.config.enableMcpTools
       ? mcp.getAllTools().map(tool => ({
           type: 'function' as const,
-          function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema,
-          },
+          function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
         }))
       : []
 
+    const history = this.messageHistory.map(message => this.toGrokMessage(message))
+    if (this.interrupted) {
+      history.push({ role: 'user', content: INTERRUPTED_TURN_GUIDANCE })
+      this.interrupted = false
+    }
+
     const transcript: GrokMessage[] = [
       { role: 'system', content: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT },
-      ...this.messageHistory.map(message => this.toGrokMessage(message)),
+      ...history,
       { role: 'user', content: goal },
     ]
 
     this.messageHistory.push({ role: 'user', content: goal, timestamp: Date.now() })
-
     const usedTools: ToolCall[] = []
+    let recoverableToolFailures = 0
 
     try {
       for (let step = 1; step <= maxSteps; step++) {
@@ -138,17 +136,12 @@ export class GrokBuildHarness {
 
         const assistant = response.choices[0]?.message
         if (!assistant) throw new Error('Grok Build returned no assistant message')
-
         transcript.push(assistant)
 
         const toolCalls = assistant.tool_calls ?? []
         if (toolCalls.length === 0) {
           const finalContent = assistant.content || ''
-          this.messageHistory.push({
-            role: 'assistant',
-            content: finalContent,
-            timestamp: Date.now(),
-          })
+          this.messageHistory.push({ role: 'assistant', content: finalContent, timestamp: Date.now() })
           this.status = 'ready'
           return {
             content: finalContent,
@@ -159,28 +152,60 @@ export class GrokBuildHarness {
               model: response.model,
               steps: step,
               usage: response.usage,
+              recoverableToolFailures,
             },
           }
         }
 
-        for (const call of toolCalls) {
-          const args = this.parseToolArguments(call.function.arguments)
-          usedTools.push({ id: call.id, name: call.function.name, arguments: args })
+        const parsedCalls = toolCalls.map(call => ({
+          source: call,
+          parsed: {
+            id: call.id,
+            name: call.function.name,
+            arguments: this.parseToolArguments(call.function.arguments),
+          } satisfies ToolCall,
+        }))
+        usedTools.push(...parsedCalls.map(item => item.parsed))
 
-          const result = await mcp.callTool(call.function.name, args)
-          const observation = JSON.stringify(result)
+        // GrokBot's mature loop treats same-turn tool calls as a batch. Run
+        // independent calls concurrently, but cap fan-out to protect local/MCP
+        // servers from unbounded model-generated parallelism.
+        const maxConcurrent = Math.max(1, this.config.maxConcurrentTools ?? 5)
+        for (let offset = 0; offset < parsedCalls.length; offset += maxConcurrent) {
+          const batch = parsedCalls.slice(offset, offset + maxConcurrent)
+          const observations = await Promise.all(batch.map(async ({ source, parsed }) => {
+            if (this.cancelled) {
+              return { id: source.id, observation: JSON.stringify({ success: false, cancelled: true }) }
+            }
 
-          transcript.push({
-            role: 'tool',
-            tool_call_id: call.id,
-            content: observation,
-          })
-          this.messageHistory.push({
-            role: 'tool',
-            toolCallId: call.id,
-            content: observation,
-            timestamp: Date.now(),
-          })
+            try {
+              const result = await mcp.callTool(parsed.name, parsed.arguments)
+              return { id: source.id, observation: JSON.stringify(result) }
+            } catch (error) {
+              recoverableToolFailures++
+              // Feed failures back as observations rather than killing the
+              // entire run. The model can choose a different tool or repair
+              // arguments on the next reason/action step.
+              return {
+                id: source.id,
+                observation: JSON.stringify({
+                  success: false,
+                  error: error instanceof Error ? error.message : String(error),
+                  recoverable: true,
+                }),
+              }
+            }
+          }))
+
+          for (const observation of observations) {
+            transcript.push({ role: 'tool', tool_call_id: observation.id, content: observation.observation })
+            this.messageHistory.push({
+              role: 'tool',
+              toolCallId: observation.id,
+              content: observation.observation,
+              timestamp: Date.now(),
+            })
+          }
         }
       }
 
@@ -189,15 +214,20 @@ export class GrokBuildHarness {
         content: `Agent stopped after reaching the ${maxSteps}-step safety limit before producing a final answer.`,
         tools: usedTools,
         status: 'error',
-        metadata: { backend: 'grok-build', maxStepsReached: true, steps: maxSteps },
+        metadata: { backend: 'grok-build', maxStepsReached: true, steps: maxSteps, recoverableToolFailures },
       }
     } catch (error) {
+      if (this.cancelled) {
+        this.interrupted = true
+        this.status = 'ready'
+        return { content: 'Agent run cancelled.', tools: usedTools, status: 'error', metadata: { backend: 'grok-build', cancelled: true } }
+      }
       this.status = 'error'
       return {
         content: error instanceof Error ? error.message : String(error),
         tools: usedTools,
         status: 'error',
-        metadata: { backend: 'grok-build' },
+        metadata: { backend: 'grok-build', recoverableToolFailures },
       }
     }
   }
@@ -212,15 +242,14 @@ export class GrokBuildHarness {
 
   clearHistory(): void {
     this.messageHistory = []
+    this.interrupted = false
   }
 
   private parseToolArguments(value: string): Record<string, unknown> {
     if (!value.trim()) return {}
     try {
       const parsed = JSON.parse(value)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>
-      }
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
       return { value: parsed }
     } catch {
       return { raw: value }
