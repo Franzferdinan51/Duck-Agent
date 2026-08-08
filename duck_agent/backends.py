@@ -5,6 +5,7 @@ Handles backend selection and initialization for Duck Agent.
 """
 
 import os
+import sys
 from enum import Enum
 from typing import Optional
 
@@ -19,14 +20,17 @@ class BackendType(Enum):
 def get_backend() -> BackendType:
     """Get the configured backend type from environment."""
     backend = os.environ.get("DUCK_AGENT_BACKEND", "grok-build")
-    
-    # Validate backend
-    valid_backends = [b.value for b in BackendType]
-    if backend not in valid_backends:
+
+    if not is_valid_backend(backend):
         print(f"Warning: Unknown backend '{backend}', defaulting to grok-build")
         return BackendType.GROK_BUILD
-    
+
     return BackendType(backend)
+
+
+def is_valid_backend(backend: str) -> bool:
+    """Check if a backend string is a valid backend type."""
+    return backend in [b.value for b in BackendType]
 
 
 def get_backend_info() -> dict:
@@ -54,11 +58,11 @@ def print_backend_info():
     """Print information about available backends."""
     backends = get_backend_info()
     current = get_backend().value
-    
+
     print("Duck Agent - Backend Selection")
     print("=" * 40)
     print()
-    
+
     for key, info in backends.items():
         marker = " [CURRENT]" if key == current else ""
         recommended = " (Recommended)" if info.get("recommended") else ""
@@ -70,17 +74,16 @@ def print_backend_info():
 def initialize_backend() -> str:
     """Initialize the configured backend and return status."""
     backend = get_backend()
-    
+
     print(f"Initializing {backend.value} backend...")
-    
-    # Backend-specific initialization would happen here
+
     if backend == BackendType.GROK_BUILD:
         return initialize_grok_build()
     elif backend == BackendType.HERMES_COMPATIBLE:
         return initialize_hermes_compatible()
     elif backend == BackendType.PRIME_AGENT:
         return initialize_prime_agent()
-    
+
     return "Unknown backend"
 
 
@@ -109,6 +112,35 @@ def initialize_prime_agent() -> str:
     return "Prime Agent initialized"
 
 
+def handle_cli():
+    """Handle command-line interface for the backend module."""
+    if len(sys.argv) < 2:
+        print_backend_info()
+        initialize_backend()
+        return
+
+    command = sys.argv[1]
+
+    if command == "info":
+        print_backend_info()
+    elif command == "start":
+        if "--backend" in sys.argv:
+            idx = sys.argv.index("--backend")
+            if idx + 1 < len(sys.argv):
+                os.environ["DUCK_AGENT_BACKEND"] = sys.argv[idx + 1]
+        result = initialize_backend()
+        print(f"\n[OK] {result}")
+    elif command == "status":
+        backend = get_backend()
+        info = get_backend_info()
+        print(f"Current backend: {backend.value}")
+        print(f"Name: {info[backend.value]['name']}")
+        print(f"Description: {info[backend.value]['description']}")
+    else:
+        print(f"Unknown command: {command}")
+        print("Available commands: info, start, status")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    print_backend_info()
-    initialize_backend()
+    handle_cli()

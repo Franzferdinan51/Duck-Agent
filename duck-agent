@@ -1,15 +1,15 @@
 #!/bin/bash
 # Duck Agent Launcher
 # A self-improving AI agent powered by Grok Build
-# 
+#
 # Usage:
 #   ./duck-agent [options]
 #   DUCK_AGENT_BACKEND=grok-build ./duck-agent
 #
 # Environment Variables:
 #   DUCK_AGENT_BACKEND   - Backend to use: grok-build, hermes-compatible, prime-agent
-#   GROK_API_KEY        - Grok API key for Grok Build backend
-#   GROK_MODEL          - Model to use (default: grok-3)
+#   GROK_API_KEY         - Grok API key for Grok Build backend
+#   GROK_MODEL           - Model to use (default: grok-3)
 
 set -e
 
@@ -20,8 +20,76 @@ BACKEND="${DUCK_AGENT_BACKEND:-grok-build}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Handle help and status flags
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo -e "${GREEN}Duck Agent${NC} - Powered by Grok Build"
+    echo ""
+    echo "Usage: duck-agent [options]"
+    echo ""
+    echo "Options:"
+    echo "  --help, -h     Show this help message"
+    echo "  --version, -v  Show version information"
+    echo "  --status       Show current backend status"
+    echo "  --backends     List available backends"
+    echo ""
+    echo "Environment Variables:"
+    echo "  DUCK_AGENT_BACKEND   Backend to use (default: grok-build)"
+    echo "  GROK_API_KEY         Grok API key for Grok Build backend"
+    echo "  GROK_MODEL           Model to use (default: grok-3)"
+    echo ""
+    echo "Available backends:"
+    echo "  grok-build         Primary harness with full Grok Build capabilities"
+    echo "  hermes-compatible  Hermes Agent compatibility mode"
+    echo "  prime-agent        Prime Intellect RLM-based agent"
+    exit 0
+fi
+
+if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+    echo -e "${GREEN}Duck Agent${NC} v0.1.0"
+    echo "Powered by Grok Build"
+    echo "Backend: ${YELLOW}$BACKEND${NC}"
+    exit 0
+fi
+
+if [ "$1" = "--backends" ]; then
+    echo -e "${GREEN}Duck Agent${NC} - Available Backends"
+    echo ""
+    echo "  grok-build         Primary harness with full Grok Build capabilities"
+    echo "  hermes-compatible  Hermes Agent compatibility mode"
+    echo "  prime-agent        Prime Intellect RLM-based agent"
+    echo ""
+    echo "Current: ${YELLOW}$BACKEND${NC}"
+    exit 0
+fi
+
+if [ "$1" = "--status" ]; then
+    echo -e "${GREEN}Duck Agent${NC} Status"
+    echo "Backend: ${YELLOW}$BACKEND${NC}"
+    echo "Working directory: $SCRIPT_DIR"
+    case "$BACKEND" in
+      grok-build)
+        echo "Primary harness: Grok Build"
+        echo "Model: ${GROK_MODEL:-grok-3}"
+        if [ -n "$GROK_API_KEY" ]; then
+            echo "API key: configured"
+        else
+            echo "API key: not set (use GROK_API_KEY env var)"
+        fi
+        ;;
+      hermes-compatible)
+        echo "Mode: Hermes Agent compatibility"
+        ;;
+      prime-agent)
+        echo "Mode: Prime Agent RLM"
+        ;;
+    esac
+    exit 0
+fi
+
+# Normal launch
 echo -e "${GREEN}Duck Agent${NC} - Powered by Grok Build"
 echo "Backend: ${YELLOW}$BACKEND${NC}"
 echo ""
@@ -29,15 +97,15 @@ echo ""
 case "$BACKEND" in
   grok-build)
     echo "Initializing Grok Build harness..."
-    exec python3 "$SCRIPT_DIR/run_agent.py" --backend grok-build "$@"
+    exec python3 "$SCRIPT_DIR/duck_agent/backends.py" start "$@"
     ;;
   hermes-compatible)
     echo "Initializing Hermes-compatible backend..."
-    exec python3 "$SCRIPT_DIR/run_agent.py" --backend hermes "$@"
+    exec python3 "$SCRIPT_DIR/duck_agent/backends.py" start --backend hermes "$@"
     ;;
   prime-agent)
     echo "Initializing Prime Agent backend..."
-    exec "$SCRIPT_DIR/prime-agent.sh" "$@"
+    exec python3 "$SCRIPT_DIR/duck_agent/backends.py" start --backend prime-agent "$@"
     ;;
   *)
     echo -e "${RED}Error: Unknown backend: $BACKEND${NC}"
