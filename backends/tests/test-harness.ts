@@ -193,6 +193,10 @@ async function main() {
 
   console.log('\n====================================')
   console.log(`Results: ${passCount} passed, ${failCount} failed`)
-  process.exit(failCount > 0 ? 1 : 0)}
+  process.exitCode = failCount > 0 ? 1 : 0
+}
 
-main().catch(err => { console.error(err); process.exit(1) })
+main().catch(err => {
+  console.error(err)
+  process.exitCode = 1
+})
