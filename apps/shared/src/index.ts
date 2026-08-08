@@ -30,3 +30,31 @@ export interface DuckAgentRuntimeSettings {
   streamEvents: boolean
   resumeRuns: boolean
 }
+
+export {
+  JsonRpcGatewayClient,
+  type ConnectionState,
+  type GatewayClientOptions,
+  type GatewayEvent,
+  type GatewayEventName,
+  type GatewayRequestId,
+  type JsonRpcFrame,
+  type WebSocketLike,
+} from './json-rpc-gateway'
+
+export { skillInvocationText } from './skill-scaffold'
+
+export {
+  buildDuckAgentWebSocketUrl,
+  buildHermesWebSocketUrl,
+  GatewayReauthRequiredError,
+  isGatewayReauthRequired,
+  resolveGatewayWsUrl,
+  type DuckAgentWebSocketUrlOptions,
+  type GatewayAuthMode,
+  type GatewayWsConnection,
+  type GatewayWsUrlResult,
+  type HermesWebSocketUrlOptions,
+  type ResolveGatewayWsUrlDeps,
+  type WebSocketAuthParam,
+} from './websocket-url'
