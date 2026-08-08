@@ -33,9 +33,9 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -132,7 +132,7 @@ class Footgun:
     # if the match is a REAL footgun (not a false positive). Use this when
     # the regex can't fully distinguish (e.g. open() where mode may contain
     # "b" for binary, or the line may have `encoding=` elsewhere).
-    post_filter: "callable | None" = None
+    post_filter: Callable[[re.Match[str], str], bool] | None = None
 
 
 FOOTGUNS: list[Footgun] = [
@@ -521,7 +521,7 @@ def _is_likely_subprocess_call(line: str) -> bool:
     return any(token in line for token in _SUBPROCESS_METHODS)
 
 
-def _looks_like_string_literal(line: str, match: "re.Match") -> bool:
+def _looks_like_string_literal(line: str, match: re.Match[str]) -> bool:
     """Heuristic: is the ``text=True`` match inside a string literal?
 
     Catches the common case of docstrings/comments that mention ``text=True``
@@ -690,10 +690,12 @@ def main(argv: list[str]) -> int:
     # Windows terminals default to cp1252, which can't encode the ✓/✗
     # characters used in the output. Reconfigure streams to UTF-8 so the
     # script works correctly on the very platform it is designed to help.
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8")
+    stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(stdout_reconfigure):
+        stdout_reconfigure(encoding="utf-8")
+    stderr_reconfigure = getattr(sys.stderr, "reconfigure", None)
+    if callable(stderr_reconfigure):
+        stderr_reconfigure(encoding="utf-8")
 
     args = parse_args(argv)
 
