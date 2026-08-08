@@ -39,9 +39,26 @@ async function assertTrue(value: boolean, msg = ''): Promise<void> {
   }
 }
 
+function makeResponse(content: string) {
+  return new Response(JSON.stringify({
+    id: 'full-integration-test',
+    object: 'chat.completion',
+    created: 0,
+    model: 'grok-test',
+    choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+}
+
 console.log('Duck Agent Full System Integration Test')
 console.log('==========================================')
 
+async function main() {
+  const originalFetch = globalThis.fetch
+  const originalKey = process.env.GROK_API_KEY
+  process.env.GROK_API_KEY = 'test-key'
+  globalThis.fetch = async () => makeResponse('offline full integration response')
+
+  try {
 await test('all managers are singletons', () => {
   const h1 = getHarness()
   const h2 = getHarness()
@@ -203,4 +220,15 @@ await test('backend switching is honored', () => {
 
 console.log('\n==========================================')
 console.log(`Results: ${passCount} passed, ${failCount} failed`)
-process.exit(failCount > 0 ? 1 : 0)
+process.exitCode = failCount > 0 ? 1 : 0
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalKey === undefined) delete process.env.GROK_API_KEY
+    else process.env.GROK_API_KEY = originalKey
+  }
+}
+
+main().catch(error => {
+  console.error(error)
+  process.exitCode = 1
+})
