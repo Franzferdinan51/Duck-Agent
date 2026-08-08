@@ -1,144 +1,78 @@
 # Duck Agent Desktop
 
-<p align="center">
-  <img src="assets/icon.png" alt="Duck Agent" width="128">
-</p>
+Duck Agent Desktop is the native control surface for the Duck Agent autonomous runtime. It is derived from the Hermes desktop application and is being completed rather than replaced.
 
-<p align="center">
-  <strong>Hermes-derived desktop control surface for the Duck Agent runtime</strong>
-</p>
+## Product rule
 
-Duck Agent Desktop is built on top of the Hermes desktop application. The intent is to **keep the useful desktop functionality that already exists** and replace/adapt the underlying agent runtime so Duck Agent becomes a real autonomous agent powered primarily by **Grok Build**.
+**Preserve first. Finish second. Remove only when a complete replacement exists.**
 
-This is not intended to become a stripped-down chat client.
+Useful Hermes-derived UI, Electron, terminal, workspace, session, settings, tool, and agent surfaces should be retained and adapted behind Duck Agent runtime interfaces. An unfinished feature is not a reason to delete it.
 
-## Product direction
+## Primary runtime
 
-The desktop app is the control surface. The autonomous runtime belongs underneath it.
+Grok Build is Duck Agent's primary harness. The desktop app should expose the runtime as a long-running agent, not a chat-completions wrapper:
 
 ```text
-Electron / React desktop UI (Hermes-derived)
-                │
-                ▼
-          Duck Agent runtime
-                │
-       goals • sessions • tools
-       MCP • skills • approvals
-                │
-                ▼
-       Grok Build harness (primary)
+Goal
+  -> plan / reason
+  -> act with tools
+  -> observe results
+  -> recover / continue
+  -> verify
+  -> complete
 ```
 
-When modifying the desktop app, preserve working Hermes features whenever possible and rewire them to Duck Agent interfaces rather than deleting them.
+## Desktop surfaces
 
-## Expected desktop capabilities
+The restored control surface includes first-class navigation for:
 
-The finished desktop application should expose:
+- Agent conversations
+- Goals and long-running tasks
+- Tool and MCP activity
+- Memory
+- Skills
+- Workspace / repository context
+- Terminal access
+- Runtime and approval settings
+- Sessions and resumable work
 
-- conversations and session history
-- long-running goals/tasks
-- live agent-run status and progress
-- tool calls and observations
-- terminal / PTY access
-- workspace and file interaction
-- MCP server configuration
-- skills
-- provider/model settings
-- permissions and approval prompts
-- cancellation and resumability
-- notifications for background work
+The active-run UI is intentionally structured around steps and tool observations so the user can see what Duck Agent is doing while it works.
 
-## Primary backend
+## Branding
 
-**Grok Build is the primary and default harness.**
+Duck Agent uses its own vector mark in `public/duck-agent-mark.svg` and the reusable React `BrandMark` component. Keep branding assets vector-first where practical so the app stays crisp across desktop scale factors.
 
-Compatibility paths may exist for Hermes or experimental backends, but the product should not present all backends as equal architectural targets.
+## Hermes port strategy
 
-Set the current backend with:
+The upstream Hermes desktop application remains an implementation reference while Duck Agent is restored. Port missing components incrementally, preserving Duck-specific runtime work already present in this repository.
 
-```bash
-DUCK_AGENT_BACKEND=grok-build
-```
+For overlapping files:
 
-## Preserve the Hermes foundation
+1. Keep Duck Agent runtime behavior.
+2. Reintroduce missing Hermes capabilities around it.
+3. Rename product-facing Hermes branding to Duck Agent.
+4. Do not mechanically overwrite Duck Agent-specific settings or runtime adapters.
+5. Add tests before replacing an existing working implementation.
 
-The application started from the Hermes desktop app. That existing work is an asset.
-
-Development rule of thumb:
-
-1. Keep working UI/features.
-2. Identify Hermes-specific runtime coupling.
-3. Introduce a Duck Agent adapter/interface.
-4. Wire Grok Build and the Duck Agent runtime behind it.
-5. Add tests before removing legacy paths.
-
-Avoid large rewrites that throw away mature desktop behavior without a concrete benefit.
+The repository intentionally keeps its Hermes-derived desktop dependencies and packaging surface so terminal, workspace, agent, artifact, cron, settings and related capabilities can be reintroduced without flattening the application into a simple chat shell.
 
 ## Development
 
-The desktop package requires Node.js 22.22+.
+The renderer entry is `src/main.tsx` and the Vite configuration is `vite.config.ts`.
 
-```bash
-npm install
-npm run dev
-```
+The package also contains Electron packaging/test scripts inherited from the desktop foundation. Those paths should be restored and adapted as the port progresses rather than removed merely because a portion is currently incomplete.
 
-Build and run:
+## Current restoration phase
 
-```bash
-npm run build
-npm start
-```
+The first restoration pass establishes a functional Duck Agent renderer shell with:
 
-Useful checks:
+- navigation and sessions
+- an observable goal/run timeline
+- structured tool activity
+- runtime inspector
+- autonomy/approval visibility
+- tools, memory, skills, workspace and settings surfaces
+- responsive desktop layout
+- Duck Agent branding
 
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-```
-
-## Architecture
-
-```text
-apps/desktop/
-├── electron/         # Electron main process and native integration
-├── src/              # React frontend
-│   ├── app/          # application shell
-│   ├── components/   # UI components
-│   ├── hooks/        # React hooks
-│   └── store/        # client state
-├── scripts/          # build/test tooling
-└── e2e/              # end-to-end tests
-```
-
-The desktop code should consume structured agent events rather than embedding model-specific orchestration directly inside React components.
-
-## Agent-event direction
-
-The runtime/UI boundary should eventually carry events such as:
-
-```text
-run.started
-run.status
-model.thinking
-model.output
-plan.updated
-tool.started
-tool.result
-tool.failed
-approval.requested
-step.completed
-run.completed
-run.failed
-run.cancelled
-```
-
-This gives the desktop app enough information to show what the agent is actually doing without coupling the UI to Grok-specific response objects.
-
-## Releases
-
-Pre-built releases, when available, are published on the repository releases page:
-
-https://github.com/Franzferdinan51/Duck-Agent/releases
+Next integration work should connect these surfaces to live runtime events and restore the remaining Hermes-derived Electron/terminal/workspace components behind Duck Agent interfaces.
