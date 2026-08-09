@@ -36,6 +36,7 @@ async function assertTrue(value: boolean, msg = ''): Promise<void> {
 console.log('Duck Agent Grok Build API Client Tests')
 console.log('======================================')
 
+async function main() {
 await test('creates new API client', () => {
   const client = new GrokBuildAPIClient()
   assertTrue(client !== null)
@@ -124,4 +125,10 @@ await test('API key from env is used', () => {
 
 console.log('\n======================================')
 console.log(`Results: ${passCount} passed, ${failCount} failed`)
-process.exit(failCount > 0 ? 1 : 0)
+process.exitCode = failCount > 0 ? 1 : 0
+}
+
+main().catch(error => {
+  console.error(error)
+  process.exitCode = 1
+})
