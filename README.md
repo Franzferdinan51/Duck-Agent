@@ -12,10 +12,15 @@ The repository currently includes:
 - A Grok Build backend as the primary path.
 - Hermes-compatible and Prime Agent compatibility/experimental paths.
 - Backend managers for sessions, skills, workflows, and MCP metadata.
-- Focused Python and TypeScript backend tests.
+- A Python dependency baseline (`pyproject.toml` + `uv.lock`) using `uv`.
+- Python and TypeScript backend test suites, plus an aggregate `run_all_tests.sh` runner.
+- Recovered CI helpers (parallel test slices, lint-diff, Windows foot-gun checks).
+- Windows installer scripts and their PowerShell tests.
 - A Hermes-derived Electron desktop application under `apps/desktop/`.
 
-The complete autonomous runtime is still being built. Durable task state, resumable long-running work, approval policies, full desktop runtime integration, and production-ready tool feedback remain active development areas.
+The complete autonomous runtime is still being built. Durable task state, resumable
+long-running work, approval policies, full desktop runtime integration, and production-ready
+tool feedback remain active development areas.
 
 ## Architecture
 
@@ -74,8 +79,11 @@ Provider configuration depends on the selected backend and is supplied through t
 Duck-Agent/
 ├── apps/desktop/       # Electron/React desktop application
 ├── backends/            # Backend and harness code
-├── scripts/             # Installer, CI, and project scripts
+├── duck_agent/          # Python launcher/backend-selection layer
+├── scripts/             # Installer, CI, and Windows scripts
 ├── tests/               # Python backend and integration tests
+├── pyproject.toml       # Python dependency baseline
+├── uv.lock              # Locked Python dependency versions
 ├── duck-agent           # Command-line launcher
 ├── run_all_tests.sh     # Aggregate local test runner
 └── README.md
@@ -85,7 +93,19 @@ Duck-Agent/
 
 ## Development and testing
 
-Python dependency and CI setup is still being stabilized. Use the repository's current test files and workflow definitions as the source of truth while that work proceeds.
+The Python dependency baseline lives in `pyproject.toml` with a lockfile at `uv.lock`, and the repository uses **`uv`** for dependency management. Install and run the Python tests with:
+
+```bash
+uv sync --locked --python 3.11 --extra all --extra dev
+uv run python -m unittest discover -s tests -p 'test_*.py'
+```
+
+Ruff and the Windows foot-gun checker are pinned in the project configuration:
+
+```bash
+uv run ruff check .
+python3 scripts/check-windows-footguns.py --all
+```
 
 The tracked Python E2E/backend test can be run directly when `pytest` is available:
 
@@ -93,17 +113,32 @@ The tracked Python E2E/backend test can be run directly when `pytest` is availab
 python3 -m pytest tests/test_e2e_backend.py -v --tb=short
 ```
 
-The repository also contains `run_all_tests.sh`, which is intended to provide an aggregate local test run. Its coverage and environment assumptions are under active repair; inspect the script and current CI status before relying on it as a release gate.
+The repository also contains `run_all_tests.sh`, which provides an aggregate local test
+run across the Python and TypeScript suites. Use it as the broadest local gate:
 
-After installing the project's TypeScript test dependencies, backend suites can also be run individually with `tsx`, for example:
+```bash
+./run_all_tests.sh
+```
+
+After installing the project's TypeScript test dependencies, backend suites can also be run
+individually with `tsx`, for example:
 
 ```bash
 npx tsx backends/tests/test-index.ts
 ```
 
-Desktop development uses the package configuration in `apps/desktop/package.json`. See that file for the available scripts and required Node.js version before installing dependencies or running desktop checks.
+Desktop development uses the package configuration in `apps/desktop/package.json`. See that
+file for the available scripts and the required Node.js version before installing
+dependencies or running desktop checks.
 
-The test suite is evolving alongside the runtime. A passing focused test suite does not yet mean that every desktop, packaging, or long-running-agent workflow is complete.
+CI is defined under `.github/workflows/` and is orchestrated by `ci.yml`. Some lanes
+(JS workspace checks, the Docusaurus docs site, and Hadolint Docker linting) are gated on
+their required repository inputs being present; on a PR they skip when those assets are
+absent. Python tests, linters, the lockfile check, the installer tests, and OSV scanning
+run on every relevant change.
+
+The test suite is evolving alongside the runtime. A passing focused test suite does not yet
+mean that every desktop, packaging, or long-running-agent workflow is complete.
 
 ## Roadmap
 
