@@ -1,7 +1,7 @@
 """Mixture-of-Agents runtime helpers for /moa turns.
 
 The slash command is deliberately not a model tool. It marks one user turn as
-MoA-enabled; the normal Hermes agent loop still owns tool calling and turn
+MoA-enabled; the normal Duck Agent agent loop still owns tool calling and turn
 termination, while this module gathers reference-model context before each model
 iteration.
 """
@@ -1008,7 +1008,7 @@ def _reference_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     came back — not just the agent's narration. We therefore preserve the whole
     conversation flow, but flatten it into clean user/assistant *text* turns:
 
-      - system prompt: dropped (8K of Hermes boilerplate, not advisory signal).
+      - system prompt: dropped (8K of Duck Agent boilerplate, not advisory signal).
       - assistant turns: kept; any ``tool_calls`` are rendered inline as
         ``[called tool: name(args)]`` text lines appended to the turn's text.
       - ``tool``-role results: NOT dropped. Each is folded (head+tail preview,
@@ -1159,7 +1159,7 @@ def _preset_temperature(preset: dict[str, Any], key: str) -> float | None:
 
     Returns None when the key is absent, empty, or explicitly null — meaning
     "don't send temperature; let the provider default apply", exactly like a
-    single-model Hermes agent (which never sends temperature unless
+    single-model Duck Agent agent (which never sends temperature unless
     configured). The old coercion ``float(preset.get(key, 0.6) or 0.6)``
     made unset impossible: absent, null, and even 0 all collapsed to the
     hardcoded default, so MoA advisors/aggregator always ran at 0.6/0.4

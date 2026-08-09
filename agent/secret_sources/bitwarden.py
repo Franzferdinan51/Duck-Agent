@@ -1,24 +1,24 @@
 """Bitwarden Secrets Manager (`bws` CLI) integration.
 
-Hermes pulls API keys from Bitwarden Secrets Manager at process startup
-so they don't have to live in plaintext in ``~/.hermes/.env``.
+Duck Agent pulls API keys from Bitwarden Secrets Manager at process startup
+so they don't have to live in plaintext in ``~/.duck-agent/.env``.
 
 Design summary
 --------------
 
-* The ``bws`` binary is auto-installed into ``<hermes_home>/bin/bws`` on
-  first use.  Hermes pins one version (``_BWS_VERSION``) and downloads
+* The ``bws`` binary is auto-installed into ``<duck_agent_home>/bin/bws`` on
+  first use.  Duck Agent pins one version (``_BWS_VERSION``) and downloads
   the matching asset from the official GitHub Releases page, verifying
   the SHA-256 against the release's published checksum file.
-* The access token is stored in ``~/.hermes/.env`` as
+* The access token is stored in ``~/.duck-agent/.env`` as
   ``BWS_ACCESS_TOKEN`` (or whatever name the user picked in
   ``secrets.bitwarden.access_token_env``).  This is the one
   bootstrap secret — every other provider key can live in Bitwarden.
 * Pulling secrets is a single ``bws secret list <project_id>
   --output json`` call.  We cache the result in-process for
-  ``cache_ttl_seconds`` so back-to-back ``hermes`` invocations don't
+  ``cache_ttl_seconds`` so back-to-back ``duck-agent`` invocations don't
   hammer the API.
-* Failures NEVER block Hermes startup.  Missing binary, no network,
+* Failures NEVER block Duck Agent startup.  Missing binary, no network,
   expired token, etc. all emit a one-line warning and continue with
   whatever credentials ``.env`` already had.
 
@@ -115,16 +115,16 @@ _DISK_CACHE: DiskCache = DiskCache(
 
 
 def _disk_cache_path(home_path: Optional[Path] = None) -> Path:
-    """Return the disk cache path under hermes_home/cache/.
+    """Return the disk cache path under duck_agent_home/cache/.
 
     Thin wrapper over the shared DiskCache, kept for tests and any direct
-    callers; falls back to `$HERMES_HOME` / `~/.hermes` when home is None.
+    callers; falls back to `$DUCK_AGENT_HOME` / `~/.duck-agent` when home is None.
     """
     return _DISK_CACHE.path(home_path)
 
 
 def _encrypted_disk_cache_path(home_path: Optional[Path] = None) -> Path:
-    """Return the encrypted disk cache path under hermes_home/cache/."""
+    """Return the encrypted disk cache path under duck_agent_home/cache/."""
     from agent.secret_sources._cache import resolve_cache_home
 
     return resolve_cache_home(home_path) / "cache" / _ENCRYPTED_CACHE_BASENAME
@@ -136,7 +136,7 @@ def _encrypted_disk_cache_path(home_path: Optional[Path] = None) -> Path:
 
 
 def _hermes_bin_dir() -> Path:
-    """Where Hermes stores its managed binaries.  Profile-aware."""
+    """Where Duck Agent stores its managed binaries.  Profile-aware."""
     from hermes_constants import get_hermes_home
 
     return get_hermes_home() / "bin"
@@ -146,7 +146,7 @@ def find_bws(*, install_if_missing: bool = False) -> Optional[Path]:
     """Return a path to a usable ``bws`` binary, or None.
 
     Resolution order:
-      1. ``<hermes_home>/bin/bws``  (our managed copy — preferred)
+      1. ``<duck_agent_home>/bin/bws``  (our managed copy — preferred)
       2. ``shutil.which("bws")``    (system PATH)
 
     When ``install_if_missing`` is True and neither resolves, this calls
@@ -221,7 +221,7 @@ def install_bws(*, force: bool = False) -> Path:
 
     Returns the path to the installed executable.  Raises on any
     failure (network, checksum, extraction) — callers in the auto-install
-    path catch these; the user-facing ``hermes secrets bitwarden setup``
+    path catch these; the user-facing ``duck-agent secrets bitwarden setup``
     surface lets them propagate so the wizard can show a clear error.
     """
     bin_dir = _hermes_bin_dir()
@@ -643,7 +643,7 @@ def _summarize_bws_stderr(raw: str) -> str:
            crates/bws/src/main.rs:108
         ...
 
-    Everything from ``Location:`` on is diagnostic noise for a Hermes
+    Everything from ``Location:`` on is diagnostic noise for a Duck Agent
     user.  Keep the numbered cause lines (joined), drop the rest, and
     fall back to the stripped raw text when the shape is unrecognized.
     """
@@ -1025,7 +1025,7 @@ def _classify_bws_error(message: str) -> ErrorKind:
 def clear_caches(home_path: Optional[Path] = None) -> None:
     """Drop in-process AND disk caches (plaintext and encrypted).
 
-    Used after a token rotation (`hermes secrets bitwarden token`) so the
+    Used after a token rotation (`duck-agent secrets bitwarden token`) so the
     next startup fetches fresh with the new credential instead of serving
     a pull cached under the old token's fingerprint.  The encrypted cache
     is keyed off the old token too, so it must go as well.

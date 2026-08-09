@@ -489,10 +489,10 @@ def record_verify_run(
     scope: str = "full",
     output: str = "",
 ) -> Optional[dict[str, Any]]:
-    """Record a completed ``hermes verify`` run as verification evidence.
+    """Record a completed ``duck-agent verify`` run as verification evidence.
 
     Explicit CLI-side write: unlike :func:`record_terminal_result` there is
-    nothing to classify — the caller (the ``hermes verify`` command) already
+    nothing to classify — the caller (the ``duck-agent verify`` command) already
     knows the run was a verification pass and whether it succeeded. A passing
     run marks the workspace ``passed`` for the verify-on-stop guard exactly
     like a passing canonical test command would; a failing run records the

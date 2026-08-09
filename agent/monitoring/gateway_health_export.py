@@ -304,7 +304,7 @@ def _read_cron_snapshot():
 def _read_background_work_count() -> int:
     """Count live background/subagent work that ``active_agents`` does NOT include.
 
-    ``hermes.gateway.active_agents`` counts foreground turns + in-flight cron
+    ``duck-agent.gateway.active_agents`` counts foreground turns + in-flight cron
     jobs + API runs, but deliberately excludes backgrounded ``delegate_task``
     subagents, ``terminal(background=true)`` processes, kanban workers, and the
     runner's own background tasks (they are tracked only for the scale-to-zero

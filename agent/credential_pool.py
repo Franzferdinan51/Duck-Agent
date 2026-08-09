@@ -893,7 +893,7 @@ class CredentialPool:
         When a Codex OAuth access token expires (or the ChatGPT account hits
         its 5h/weekly quota), the pool entry gets marked ``STATUS_EXHAUSTED``
         with a ``last_error_reset_at`` that can be many hours in the future.
-        Meanwhile the user may run ``hermes model`` / ``hermes auth`` which
+        Meanwhile the user may run ``duck-agent model`` / ``duck-agent auth`` which
         performs a fresh device-code login and writes new tokens to
         ``auth.json`` under ``_auth_store_lock``.  Without this sync the pool
         entry stays frozen until ``last_error_reset_at`` elapses — even
@@ -978,7 +978,7 @@ class CredentialPool:
     def _sync_xai_oauth_entry_from_auth_store(self, entry: PooledCredential) -> PooledCredential:
         """Sync an xAI OAuth pool entry from auth.json if tokens differ.
 
-        xAI OAuth refresh tokens are single-use.  When another Hermes process
+        xAI OAuth refresh tokens are single-use.  When another Duck Agent process
         (or another profile sharing the same auth.json) refreshes the token,
         it writes the new pair to ``providers["xai-oauth"]["tokens"]`` under
         ``_auth_store_lock``.  Without this resync, our in-memory pool entry
@@ -1161,8 +1161,8 @@ class CredentialPool:
         Using ``_save_provider_state`` (which sets ``active_provider``)
         here would mean every Nous/Codex/xAI refresh in a multi-provider
         setup silently flips the ``active_provider`` flag — the next
-        ``hermes`` invocation that defaults to the active provider
-        (e.g. setup wizard, ``hermes auth status``) would land on
+        ``duck-agent`` invocation that defaults to the active provider
+        (e.g. setup wizard, ``duck-agent auth status``) would land on
         whatever provider happened to refresh last, not whatever the
         user actually chose.
         """

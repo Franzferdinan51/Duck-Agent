@@ -1,8 +1,8 @@
 """Auto-installation of LSP server binaries.
 
 Tries to install missing servers using whatever package manager is
-appropriate.  All installs go to a Hermes-owned bin staging dir,
-``<HERMES_HOME>/lsp/bin/``, so we don't pollute the user's global
+appropriate.  All installs go to a Duck Agent-owned bin staging dir,
+``<DUCK_AGENT_HOME>/lsp/bin/``, so we don't pollute the user's global
 toolchain.
 
 Strategies:
@@ -10,7 +10,7 @@ Strategies:
 - ``auto`` — attempt to install with the best available package
   manager.  This is the default.
 - ``manual`` — never install; if a binary is missing, the server is
-  silently skipped and the user is told about it via ``hermes lsp
+  silently skipped and the user is told about it via ``duck-agent lsp
   status``.
 - ``off`` — same as ``manual`` for now (kept distinct so we can
   evolve behavior later, e.g. logging differently).
@@ -123,7 +123,7 @@ def _is_windows() -> bool:
 
 
 def hermes_lsp_bin_dir() -> Path:
-    """Return the Hermes-owned bin staging dir for LSP servers."""
+    """Return the Duck Agent-owned bin staging dir for LSP servers."""
     from hermes_constants import get_hermes_home
 
     p = get_hermes_home() / "lsp" / "bin"
@@ -342,7 +342,7 @@ def _install_go(pkg: str, bin_name: str) -> Optional[str]:
 
 
 def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
-    """Install a Python package into a hermes-owned target dir.
+    """Install a Python package into a duck-agent-owned target dir.
 
     We avoid polluting the user's site-packages by using
     ``pip install --target``.  Bins go into
@@ -392,7 +392,7 @@ def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
 def detect_status(pkg: str) -> str:
     """Return ``installed``, ``missing``, or ``manual-only`` for a package.
 
-    Used by the ``hermes lsp status`` CLI to give users a quick
+    Used by the ``duck-agent lsp status`` CLI to give users a quick
     overview of what's available without spawning anything.
     """
     recipe = INSTALL_RECIPES.get(pkg)

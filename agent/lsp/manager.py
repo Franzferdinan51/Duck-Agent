@@ -271,7 +271,7 @@ class LSPService:
 
         Files in already-broken pairs return False so the file_operations
         layer skips the LSP path entirely — no spawn attempts, no
-        timeout cost — until the service is restarted (``hermes lsp
+        timeout cost — until the service is restarted (``duck-agent lsp
         restart``) or the process exits.
         """
         if not self._enabled:

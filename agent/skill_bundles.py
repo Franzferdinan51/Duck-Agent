@@ -7,8 +7,8 @@ referenced skill's full content into a single user message, the same way
 
 Storage
 -------
-Bundles live in ``~/.hermes/skill-bundles/*.yaml`` (and the equivalent
-profile-aware directory under ``HERMES_HOME``). Each file looks like::
+Bundles live in ``~/.duck-agent/skill-bundles/*.yaml`` (and the equivalent
+profile-aware directory under ``DUCK_AGENT_HOME``). Each file looks like::
 
     name: backend-dev
     description: Backend feature work — code review, testing, PR workflow.
@@ -36,7 +36,7 @@ Public API
 - :func:`resolve_bundle_command_key` — map a user-typed command to its slug
 - :func:`build_bundle_invocation_message` — produce the full user message
 - :func:`reload_bundles` — re-scan disk and return a diff
-- :func:`list_bundles` — return rich info for display (``hermes bundles``)
+- :func:`list_bundles` — return rich info for display (``duck-agent bundles``)
 - :func:`save_bundle` / :func:`delete_bundle` — file-level operations
 """
 
@@ -64,10 +64,10 @@ _bundles_cache_mtime: Optional[float] = None
 
 
 def _bundles_dir() -> Path:
-    """Return the canonical bundles directory under HERMES_HOME.
+    """Return the canonical bundles directory under DUCK_AGENT_HOME.
 
     Honors ``HERMES_BUNDLES_DIR`` for tests; falls back to
-    ``<HERMES_HOME>/skill-bundles``.
+    ``<DUCK_AGENT_HOME>/skill-bundles``.
     """
     override = os.environ.get("HERMES_BUNDLES_DIR")
     if override:

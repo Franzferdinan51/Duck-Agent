@@ -10,7 +10,7 @@ This module provides a fail-closed, context-local secret scope:
 
 - ``set_secret_scope(mapping)`` installs the active profile's secrets for the
   current task (a contextvar, so it propagates into the agent's worker thread
-  via ``copy_context()`` exactly like the HERMES_HOME override).
+  via ``copy_context()`` exactly like the DUCK_AGENT_HOME override).
 - ``get_secret(name)`` reads from that scope. When multiplexing is **active**
   and no scope is set, it RAISES rather than silently falling back to
   ``os.environ`` — an un-migrated or newly-added call site fails loud at that
@@ -227,7 +227,7 @@ def load_env_file(env_path: Path) -> Dict[str, str]:
     """Parse a ``.env`` file into a plain dict WITHOUT touching ``os.environ``.
 
     Used to load a profile's secrets into an isolated mapping for
-    ``set_secret_scope``. Parses the small KEY=VALUE subset Hermes writes
+    ``set_secret_scope``. Parses the small KEY=VALUE subset Duck Agent writes
     itself (``export`` prefix, ``#`` comments — full-line and
     dotenv-compatible inline, matching quotes with the
     writer's ``\\"``/``\\\\`` escapes reversed — the same semantics as

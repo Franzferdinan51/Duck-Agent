@@ -1,6 +1,6 @@
 """OpenAI-compatible facade over Google AI Studio's native Gemini API.
 
-Hermes keeps ``api_mode='chat_completions'`` for the ``gemini`` provider so the
+Duck Agent keeps ``api_mode='chat_completions'`` for the ``gemini`` provider so the
 main agent loop can keep using its existing OpenAI-shaped message flow.
 This adapter is the transport shim that converts those OpenAI-style
 ``messages[]`` / ``tools[]`` requests into Gemini's native
@@ -8,7 +8,7 @@ This adapter is the transport shim that converts those OpenAI-style
 
 Why this exists
 ---------------
-Google's OpenAI-compatible endpoint has been brittle for Hermes's multi-turn
+Google's OpenAI-compatible endpoint has been brittle for Duck Agent'ss multi-turn
 agent/tool loop (auth churn, tool-call replay quirks, thought-signature
 requirements).  The native Gemini API is the canonical path and avoids the
 OpenAI-compat layer entirely.
@@ -80,7 +80,7 @@ def probe_gemini_tier(
 
     Returns one of:
 
-    - ``"free"``    -- key is on the free tier (unusable with Hermes)
+    - ``"free"``    -- key is on the free tier (unusable with Duck Agent)
     - ``"paid"``    -- key is on a paid tier
     - ``"unknown"`` -- probe failed; callers should proceed without blocking.
     """
@@ -200,7 +200,7 @@ _STANDARD_KEY_GUIDANCE = (
 
 
 class GeminiAPIError(Exception):
-    """Error shape compatible with Hermes retry/error classification."""
+    """Error shape compatible with Duck Agent retry/error classification."""
 
     def __init__(
         self,

@@ -1,7 +1,7 @@
 """Export monitoring events to an OpenTelemetry Collector over OTLP/HTTP.
 
 Maps gateway monitoring events to OTel spans and sends them to the endpoint
-configured under ``monitoring.export.otlp``. Lets an operator stream Hermes
+configured under ``monitoring.export.otlp``. Lets an operator stream Duck Agent
 gateway health into their own observability stack (OTEL Collector, DataDog,
 and similar).
 
@@ -9,7 +9,7 @@ Notes:
   * The destination is operator-configured; this module only sends to that
     endpoint. No default destination ships.
   * ``opentelemetry-sdk`` + ``opentelemetry-exporter-otlp-proto-http`` are an
-    optional extra (``pip install hermes-agent[otlp]``), imported lazily so the
+    optional extra (``pip install duck-agent[otlp]``), imported lazily so the
     dependency is only required when OTLP export is actually used.
   * ``headers_env`` maps a header name to an environment variable name; values
     are read from the environment at export time and never logged or stored.

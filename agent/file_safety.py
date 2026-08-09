@@ -8,7 +8,7 @@ from typing import Optional
 
 
 def _hermes_home_path() -> Path:
-    """Resolve the active HERMES_HOME (profile-aware) without circular imports."""
+    """Resolve the active DUCK_AGENT_HOME (profile-aware) without circular imports."""
     try:
         from hermes_constants import get_hermes_home  # local import to avoid cycles
         return get_hermes_home()
@@ -17,7 +17,7 @@ def _hermes_home_path() -> Path:
 
 
 def _hermes_root_path() -> Path:
-    """Resolve the Hermes root dir (always the parent of any profile, never per-profile)."""
+    """Resolve the Duck Agent root dir (always the parent of any profile, never per-profile)."""
     try:
         from hermes_constants import get_default_hermes_root  # local import to avoid cycles
         return get_default_hermes_root()
@@ -192,14 +192,14 @@ _BLOCKED_PROJECT_ENV_BASENAMES: set[str] = {
 
 
 def get_read_block_error(path: str) -> Optional[str]:
-    """Return an error message when a read targets a denied Hermes path.
+    """Return an error message when a read targets a denied Duck Agent path.
 
     Three categories are blocked:
 
-      * Internal Hermes cache files under ``HERMES_HOME/skills/.hub`` —
+      * Internal Duck Agent cache files under ``DUCK_AGENT_HOME/skills/.hub`` —
         readable metadata that an attacker could use as a prompt-injection
         carrier.
-      * Credential / secret stores under HERMES_HOME and the global Hermes
+      * Credential / secret stores under DUCK_AGENT_HOME and the global Duck Agent
         root: ``auth.json``, ``auth.lock``, ``.anthropic_oauth.json``,
         ``.env``, ``webhook_subscriptions.json``, ``auth/google_oauth.json``,
         and anything under ``mcp-tokens/``. These hold plaintext provider keys,
@@ -216,7 +216,7 @@ def get_read_block_error(path: str) -> Optional[str]:
 
     **This is NOT a security boundary.** The terminal tool runs as the
     same OS user with shell access; the agent can still ``cat auth.json``
-    or ``cat ~/.hermes/.env`` and exfiltrate the file. The read-deny exists
+    or ``cat ~/.duck-agent/.env`` and exfiltrate the file. The read-deny exists
     as defense-in-depth that:
 
       * Returns a clear error to models that respect tool denials, which
@@ -338,7 +338,7 @@ def get_read_block_error(path: str) -> Optional[str]:
 
 
 def raise_if_read_blocked(path: str) -> None:
-    """Raise ``ValueError`` if ``path`` is a denied Hermes read (see
+    """Raise ``ValueError`` if ``path`` is a denied Duck Agent read (see
     :func:`get_read_block_error`), else return.
 
     Shared chokepoint for provider input-loading sites that read a local
@@ -390,10 +390,10 @@ PROFILE_SCOPED_AREAS = ("skills", "plugins", "cron", "memories")
 
 
 def _resolve_active_profile_name() -> str:
-    """Return the active profile name derived from HERMES_HOME.
+    """Return the active profile name derived from DUCK_AGENT_HOME.
 
-    ``~/.hermes``              -> ``"default"``
-    ``~/.hermes/profiles/X``  -> ``"X"``
+    ``~/.duck-agent``              -> ``"default"``
+    ``~/.duck-agent/profiles/X``  -> ``"X"``
 
     Falls back to ``"default"`` on any resolution failure so the guard
     never raises into the tool path.
@@ -418,7 +418,7 @@ def classify_cross_profile_target(path: str) -> Optional[dict]:
     """Classify a write target as cross-profile if it lands in another
     profile's scoped area (skills/plugins/cron/memories).
 
-    Returns ``None`` when the target is outside Hermes scope, or is inside
+    Returns ``None`` when the target is outside Duck Agent scope, or is inside
     the ACTIVE profile, or doesn't hit a profile-scoped area. Otherwise
     returns a dict with:
 
@@ -481,7 +481,7 @@ def get_cross_profile_warning(path: str) -> Optional[str]:
     """Return a model-facing warning string when ``path`` is cross-profile.
 
     Returns ``None`` when the write is in-scope (same profile) or outside
-    Hermes entirely. Caller is expected to surface the warning to the
+    Duck Agent entirely. Caller is expected to surface the warning to the
     agent as a tool-result error, NOT to silently allow the write — the
     agent must either get explicit user direction to proceed, or pass
     ``cross_profile=True`` to its write tool.
@@ -531,10 +531,10 @@ def get_cross_profile_warning(path: str) -> Optional[str]:
 
 
 def _find_sandbox_mirror_segments(parts: tuple) -> Optional[int]:
-    """Return the index of the inner ``.hermes`` part in a sandbox-mirror path.
+    """Return the index of the inner ``.duck-agent`` part in a sandbox-mirror path.
 
-    Matches ``…/sandboxes/<backend>/<task>/home/.hermes/…`` and returns the
-    index where the inner Hermes-state portion starts. Returns ``None`` for
+    Matches ``…/sandboxes/<backend>/<task>/home/.duck-agent/…`` and returns the
+    index where the inner Duck Agent-state portion starts. Returns ``None`` for
     paths that do not contain the sandbox-mirror shape.
     """
     for i, part in enumerate(parts):
@@ -549,20 +549,20 @@ def _find_sandbox_mirror_segments(parts: tuple) -> Optional[int]:
 
 
 def classify_sandbox_mirror_target(path: str) -> Optional[dict]:
-    """Classify a write target as a sandbox-mirror of authoritative Hermes state.
+    """Classify a write target as a sandbox-mirror of authoritative Duck Agent state.
 
     Returns ``None`` when the path does not match the sandbox-mirror shape.
     Otherwise returns a dict with:
 
       * ``target_path``: the resolved path string
-      * ``mirror_root``: the ``…/sandboxes/<backend>/<task>/home/.hermes``
+      * ``mirror_root``: the ``…/sandboxes/<backend>/<task>/home/.duck-agent``
         prefix (so callers can show users which sandbox owns the mirror)
-      * ``inner_path``: the portion under the mirror's ``.hermes`` (what the
+      * ``inner_path``: the portion under the mirror's ``.duck-agent`` (what the
         agent likely meant to address on the host)
 
-    Detection is path-shape-only — does not require any Hermes resolver to
+    Detection is path-shape-only — does not require any Duck Agent resolver to
     succeed, so it works correctly even when called from contexts where
-    HERMES_HOME resolution would be ambiguous.
+    DUCK_AGENT_HOME resolution would be ambiguous.
     """
     try:
         target = Path(os.path.expanduser(str(path))).resolve()
@@ -646,7 +646,7 @@ def classify_container_mirror_target(
       * ``target_path``: resolved path string
       * ``mirror_root``: the declared container mirror prefix
       * ``inner_path``: portion under the mirror root (what the agent
-        likely meant to address in the host HERMES_HOME)
+        likely meant to address in the host DUCK_AGENT_HOME)
     """
     if not mirror_prefix:
         return None
@@ -668,7 +668,7 @@ def get_container_mirror_warning(
     mirror_prefix: str | None = None,
 ) -> Optional[str]:
     """Return a model-facing warning when *path* lands in the container's
-    sandbox mirror of authoritative Hermes state.
+    sandbox mirror of authoritative Duck Agent state.
 
     The caller supplies ``mirror_prefix`` only when the current file-tool
     backend is known to execute inside a Docker sandbox. Same contract as

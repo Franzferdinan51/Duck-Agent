@@ -3603,9 +3603,9 @@ def _compress_context_via_codex_app_server(
 ) -> Tuple[list, str]:
     """Route compaction to Codex app-server for Codex-owned threads.
 
-    Hermes' normal compressor rewrites the local OpenAI-style transcript.
+    Duck Agent' normal compressor rewrites the local OpenAI-style transcript.
     That does not shrink the actual Codex app-server thread context. For this
-    runtime, ask Codex to compact its own thread and keep Hermes' transcript
+    runtime, ask Codex to compact its own thread and keep Duck Agent' transcript
     unchanged.
     """
     auto_mode = str(

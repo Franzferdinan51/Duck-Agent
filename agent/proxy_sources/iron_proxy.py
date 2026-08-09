@@ -20,16 +20,16 @@ infrastructure, the guarantee no longer holds).
 Design summary
 --------------
 
-* The ``iron-proxy`` binary is auto-installed into ``<hermes_home>/bin/iron-proxy``
-  on first use.  Hermes pins one upstream version (``_IRON_PROXY_VERSION``)
+* The ``iron-proxy`` binary is auto-installed into ``<duck_agent_home>/bin/iron-proxy``
+  on first use.  Duck Agent pins one upstream version (``_IRON_PROXY_VERSION``)
   and downloads the matching tar.gz from the official GitHub Releases page,
   verifying the SHA-256 against the release's ``checksums.txt``.
 
-* A long-lived CA at ``<hermes_home>/proxy/ca.{crt,key}`` is generated on
-  first ``hermes egress setup``.  Sandboxes trust this CA so iron-proxy can
+* A long-lived CA at ``<duck_agent_home>/proxy/ca.{crt,key}`` is generated on
+  first ``duck-agent egress setup``.  Sandboxes trust this CA so iron-proxy can
   terminate TLS and rewrite headers.
 
-* The proxy config lives at ``<hermes_home>/proxy/proxy.yaml``.  It enumerates
+* The proxy config lives at ``<duck_agent_home>/proxy/proxy.yaml``.  It enumerates
   the per-provider allowlists and the ``secrets`` transform that does the
   Authorization-header swap.
 
@@ -39,9 +39,9 @@ Design summary
   Bitwarden Secrets Manager is configured, the real value is pulled there
   at proxy startup instead.
 
-* The proxy runs as a managed subprocess (``hermes egress start``), pidfile
-  at ``<hermes_home>/proxy/iron-proxy.pid``.  Daemon output (including
-  per-request records on v0.39) goes to ``<hermes_home>/proxy/iron-proxy.log``;
+* The proxy runs as a managed subprocess (``duck-agent egress start``), pidfile
+  at ``<duck_agent_home>/proxy/iron-proxy.pid``.  Daemon output (including
+  per-request records on v0.39) goes to ``<duck_agent_home>/proxy/iron-proxy.log``;
   ``audit.log`` is pre-created but reserved for a future pin that supports
   ``log.audit_path``.
 
@@ -366,7 +366,7 @@ def _proxy_state_dir_ro() -> Path:
     """Return the proxy state dir without creating it.
 
     Read-only callers (status probes, pidfile reads, version queries) use
-    this — there's no reason to materialize ``~/.hermes/proxy/`` just to
+    this — there's no reason to materialize ``~/.duck-agent/proxy/`` just to
     check whether a pidfile exists.
     """
     from hermes_constants import get_hermes_home
@@ -437,7 +437,7 @@ def find_iron_proxy(*, install_if_missing: bool = False) -> Optional[Path]:
     """Return a path to a usable ``iron-proxy`` binary, or None.
 
     Resolution order:
-      1. ``<hermes_home>/bin/iron-proxy``  (our managed copy — preferred)
+      1. ``<duck_agent_home>/bin/iron-proxy``  (our managed copy — preferred)
       2. ``shutil.which("iron-proxy")``    (system PATH)
 
     When ``install_if_missing`` is True and neither resolves, calls
@@ -466,7 +466,7 @@ def install_iron_proxy(*, force: bool = False) -> Path:
 
     Returns the path to the installed executable.  Raises on any failure
     (network, checksum, extraction).  Callers in the auto-install path catch
-    these; the user-facing ``hermes proxy install`` surface lets them
+    these; the user-facing ``duck-agent proxy install`` surface lets them
     propagate so the wizard can show a clear error.
     """
 
@@ -845,10 +845,10 @@ def _management_token_path() -> Path:
 def ensure_management_token(*, force: bool = False) -> str:
     """Return the management-API bearer key, minting it on first call.
 
-    Stored at ``<hermes_home>/proxy/management.token`` with 0600 perms.
+    Stored at ``<duck_agent_home>/proxy/management.token`` with 0600 perms.
     The daemon receives it via the ``HERMES_IRON_PROXY_MGMT_KEY`` env var
     (named in the generated config's ``management.api_key_env``);
-    ``hermes egress reload`` reads the same file to authenticate.
+    ``duck-agent egress reload`` reads the same file to authenticate.
     """
 
     p = _management_token_path()
@@ -1357,7 +1357,7 @@ def ensure_audit_log(audit_path: Path) -> None:
 
 
 def write_proxy_config(config: Dict) -> Path:
-    """Serialize the config dict to ``<hermes_home>/proxy/proxy.yaml``.
+    """Serialize the config dict to ``<duck_agent_home>/proxy/proxy.yaml``.
 
     Uses ``yaml.safe_dump`` so we never emit Python tags.
     """
@@ -1507,7 +1507,7 @@ def discover_uncovered_providers(
     sandbox is holding real credentials that the proxy can't strip — the
     isolation guarantee is incomplete for those providers.
 
-    The wizard and ``hermes egress status`` use this to print a warning.
+    The wizard and ``duck-agent egress status`` use this to print a warning.
     (Anthropic / Azure OpenAI / Gemini used to be here; they're now
     first-class swapped providers via ``_HEADER_AUTH_PROVIDERS``.)
     """
@@ -1529,7 +1529,7 @@ def merge_mappings(
     """Combine an existing mapping set with freshly discovered providers.
 
     By default this PRESERVES tokens for providers already in ``existing`` —
-    re-running ``hermes egress setup`` should not invalidate the tokens
+    re-running ``duck-agent egress setup`` should not invalidate the tokens
     baked into containers that are already running.  Only newly added
     providers get freshly minted tokens.
 

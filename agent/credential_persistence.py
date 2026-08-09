@@ -154,7 +154,7 @@ def sanitize_borrowed_credential_payload(
 ) -> Dict[str, Any]:
     """Return a disk-safe credential-pool payload.
 
-    Owned sources (manual entries and Hermes-owned OAuth/device-code state)
+    Owned sources (manual entries and Duck Agent-owned OAuth/device-code state)
     pass through unchanged.  Borrowed/reference-only sources keep labels,
     source refs, status/cooldown metadata, counters, and a non-reversible
     fingerprint, but raw secret value fields are removed.

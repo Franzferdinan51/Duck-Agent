@@ -1,4 +1,4 @@
-"""Public, plugin-safe lifecycle API for delegated Hermes subagents.
+"""Public, plugin-safe lifecycle API for delegated Duck Agent subagents.
 
 This module deliberately exposes immutable contracts, not ``AIAgent`` objects.
 It is the supported boundary for plugins that need to supervise fresh child

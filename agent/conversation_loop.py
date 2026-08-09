@@ -198,7 +198,7 @@ def _apply_active_turn_redirect(agent: Any, messages: List[Dict[str, Any]], text
     "Provider returned an empty response" storms that no retry, nudge, or
     empty-recovery branch can escape (July 2026: four sessions bricked this
     way; every reasoning-free checkpoint that week was untouched — same
-    mechanism as the ~/.hermes/prefill.json incident, 20/20 blocked with
+    mechanism as the ~/.duck-agent/prefill.json incident, 20/20 blocked with
     assistant-exposed CoT vs 0/20 without). The interrupted reasoning was
     incomplete by definition; the model regenerates it on the retried turn.
     If a future path needs to preserve interrupted thinking, carry it in a
@@ -703,7 +703,7 @@ def _stored_prompt_matches_runtime(agent, prompt: str) -> bool:
 
         Anchor on the ``User home directory:`` line that immediately precedes
         the working-directory line in that block, and take the FIRST such
-        occurrence, so only Hermes' own emitted block can satisfy the read.
+        occurrence, so only Duck Agent' own emitted block can satisfy the read.
         """
         prefix = f"{label}:"
         lines = prompt.splitlines()

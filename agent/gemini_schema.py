@@ -37,7 +37,7 @@ _GEMINI_SCHEMA_ALLOWED_KEYS = {
 def sanitize_gemini_schema(schema: Any) -> Dict[str, Any]:
     """Return a Gemini-compatible copy of a tool parameter schema.
 
-    Hermes tool schemas are OpenAI-flavored JSON Schema and may contain keys
+    Duck Agent tool schemas are OpenAI-flavored JSON Schema and may contain keys
     such as ``$schema`` or ``additionalProperties`` that Google's Gemini
     ``Schema`` object rejects.  This helper preserves the documented Gemini
     subset and recursively sanitizes nested ``properties`` / ``items`` /

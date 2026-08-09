@@ -1,6 +1,6 @@
-"""Projects codex app-server events into Hermes' messages list.
+"""Projects codex app-server events into Duck Agent' messages list.
 
-The translator that lets Hermes' memory/skill review keep working under the
+The translator that lets Duck Agent' memory/skill review keep working under the
 Codex runtime: it converts Codex `item/*` notifications into the standard
 OpenAI-shaped `{role, content, tool_calls, tool_call_id}` entries that
 `agent/curator.py` already knows how to read.
@@ -16,9 +16,9 @@ Codex emits items with a discriminator field `type`:
   - plan/hookPrompt/collabAgentToolCall → recorded as opaque assistant notes
 
 Each item maps to AT MOST one assistant entry + one tool entry, preserving
-Hermes' message-alternation invariants (system → user → assistant → user/tool
+Duck Agent' message-alternation invariants (system → user → assistant → user/tool
 → assistant → ...). Multiple Codex tool calls within one Codex turn produce
-multiple consecutive (assistant, tool) pairs, which is the same shape Hermes
+multiple consecutive (assistant, tool) pairs, which is the same shape Duck Agent
 already produces for parallel tool calls.
 
 Counters tracked alongside projection:
@@ -48,7 +48,7 @@ def _deterministic_call_id(item_type: str, item_id: str) -> str:
 
 
 def _format_tool_args(d: dict) -> str:
-    """Format a dict as JSON the way Hermes' existing tool_calls path does."""
+    """Format a dict as JSON the way Duck Agent' existing tool_calls path does."""
     return json.dumps(d, ensure_ascii=False, sort_keys=True)
 
 
@@ -70,7 +70,7 @@ class CodexEventProjector:
     """Stateful projector consuming Codex notifications in arrival order.
 
     Owns the in-progress reasoning content (codex emits reasoning as separate
-    items but Hermes stashes it on the next assistant message)."""
+    items but Duck Agent stashes it on the next assistant message)."""
 
     def __init__(self) -> None:
         self._pending_reasoning: list[str] = []

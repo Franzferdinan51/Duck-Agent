@@ -694,7 +694,7 @@ def _find_pses_bundle(ctx: ServerContext) -> Optional[str]:
        directory.  This is the documented config knob.
     2. ``init_overrides["powershell"]["bundlePath"]``.
     3. ``PSES_BUNDLE_PATH`` env var.
-    4. ``<HERMES_HOME>/lsp/PowerShellEditorServices`` staging dir (where a
+    4. ``<DUCK_AGENT_HOME>/lsp/PowerShellEditorServices`` staging dir (where a
        user-run unzip would naturally land).
 
     Returns the bundle directory containing ``PowerShellEditorServices/``,

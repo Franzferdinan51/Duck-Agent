@@ -2,7 +2,7 @@
 
 Resolve provider credentials from 1Password ``op://vault/item/field``
 references at process startup so they don't have to live in plaintext in
-``~/.hermes/.env``.
+``~/.duck-agent/.env``.
 
 Design summary
 --------------
@@ -22,17 +22,17 @@ Design summary
   same point in startup as the Bitwarden source).
 * Authentication is whatever the user's ``op`` CLI already uses — a
   service-account token (``OP_SERVICE_ACCOUNT_TOKEN``) for headless boxes,
-  or a desktop/interactive session (``OP_SESSION_*``).  Hermes never
+  or a desktop/interactive session (``OP_SESSION_*``).  Duck Agent never
   authenticates on the user's behalf; it shells out to an already-trusted,
   already-authenticated CLI.
 * Failures NEVER block startup.  A missing ``op`` binary, expired auth, a
   bad reference, or a permission error each surface a one-line warning and
-  Hermes continues with whatever credentials ``.env`` already had.
+  Duck Agent continues with whatever credentials ``.env`` already had.
 
 The atomic-write / ``0600`` / TTL cache mechanics are shared with the other
 backends via :mod:`agent.secret_sources._cache` — successful, complete pulls
-are cached in-process and on disk under ``<hermes_home>/cache/op_cache.json``
-so back-to-back short-lived ``hermes`` invocations don't re-shell ``op`` for
+are cached in-process and on disk under ``<duck_agent_home>/cache/op_cache.json``
+so back-to-back short-lived ``duck-agent`` invocations don't re-shell ``op`` for
 every reference.  The disk file holds only resolved secret *values*; auth
 material is fingerprinted, never stored.
 """
@@ -665,7 +665,7 @@ def _classify_op_error(message: str) -> ErrorKind:
 def clear_caches(home_path: Optional[Path] = None) -> None:
     """Drop in-process AND disk caches.
 
-    Used after a token rotation (`hermes secrets onepassword token`) so
+    Used after a token rotation (`duck-agent secrets onepassword token`) so
     the next startup resolves fresh with the new credential instead of
     serving values cached under the old token's fingerprint.
     """

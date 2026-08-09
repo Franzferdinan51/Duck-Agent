@@ -1,6 +1,6 @@
-"""Upload a Hermes session transcript to Hugging Face as an agent trace.
+"""Upload a Duck Agent session transcript to Hugging Face as an agent trace.
 
-Hermes stores sessions in its own SQLite store (``hermes_state.SessionDB``),
+Duck Agent stores sessions in its own SQLite store (``hermes_state.SessionDB``),
 so we reconstruct the conversation and emit it in the **Claude Code JSONL**
 shape — one of the three formats the Hugging Face Agent Trace Viewer
 auto-detects (Claude Code / Codex / Pi). No dataset-side preprocessing is
@@ -11,11 +11,11 @@ Docs: https://huggingface.co/docs/hub/agent-traces
 Design notes
 ------------
 * **Zero LLM turn.** This is a deterministic export — it never spends a
-  model call. The ``hermes trace upload`` subcommand calls
+  model call. The ``duck-agent trace upload`` subcommand calls
   :func:`upload_session_trace` directly.
 * **Private by default.** Traces can contain prompts, tool output, local
   paths, and secrets. The dataset is created private and every text body
-  is passed through Hermes' secret redactor (``force=True``) unless the
+  is passed through Duck Agent' secret redactor (``force=True``) unless the
   caller explicitly opts out with ``redact=False``.
 * **Never raises.** Returns a user-facing status string so command
   handlers can echo it straight back to the user. Programmatic callers
@@ -58,7 +58,7 @@ def _now_iso() -> str:
 def _redact(text: Any, enabled: bool) -> Any:
     """Redact secrets from a string body when redaction is enabled.
 
-    Non-strings pass through untouched. Uses Hermes' shared redactor with
+    Non-strings pass through untouched. Uses Duck Agent' shared redactor with
     ``force=True`` so an upload always scrubs known secret shapes even if
     the user disabled log redaction globally.
     """
@@ -140,7 +140,7 @@ def build_trace_jsonl(
     cwd: str = "",
     redact: bool = True,
 ) -> str:
-    """Render Hermes conversation messages as Claude Code JSONL text.
+    """Render Duck Agent conversation messages as Claude Code JSONL text.
 
     Each non-system message becomes one JSONL line in the Claude Code
     transcript shape the HF Agent Trace Viewer auto-detects:
@@ -356,7 +356,7 @@ def upload_session_trace(
     """Top-level entry point used by the CLI/gateway/subcommand.
 
     Loads the session, converts it to Claude Code JSONL, and uploads it to
-    the user's private ``{user}/hermes-traces`` dataset. Returns a
+    the user's private ``{user}/duck-agent-traces`` dataset. Returns a
     user-facing status string and never raises.
     """
     if not session_id:

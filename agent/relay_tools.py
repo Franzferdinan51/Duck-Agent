@@ -1,4 +1,4 @@
-"""Core NeMo Relay adapter for Hermes tool execution."""
+"""Core NeMo Relay adapter for Duck Agent tool execution."""
 
 from __future__ import annotations
 

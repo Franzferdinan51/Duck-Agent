@@ -1,4 +1,4 @@
-"""Profile-scoped NeMo Relay runtimes owned by the Hermes agent core."""
+"""Profile-scoped NeMo Relay runtimes owned by the Duck Agent agent core."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ _PROFILE_KEY_CACHE: dict[str, str] = {}
 
 @dataclass
 class RelaySession:
-    """One isolated Relay scope stack owned by a Hermes session."""
+    """One isolated Relay scope stack owned by a Duck Agent session."""
 
     session_id: str
     parent_session_id: str = ""
@@ -67,7 +67,7 @@ class RelayRuntime:
             self._execution_consumers.discard(consumer)
 
     def managed_execution_enabled(self) -> bool:
-        """Return whether a Hermes-managed consumer needs the Relay pipeline."""
+        """Return whether a Duck Agent-managed consumer needs the Relay pipeline."""
         with self._execution_consumers_lock:
             return bool(self._execution_consumers)
 
@@ -175,7 +175,7 @@ class RelayRuntime:
             self._subagent_parent_handles.pop(child_session_id, None)
 
     def get_session(self, session_id: str) -> RelaySession | None:
-        """Return an active Hermes Relay session without creating one."""
+        """Return an active Duck Agent Relay session without creating one."""
         with self._sessions_lock:
             session = self._sessions.get(str(session_id or ""))
         if session is None:
@@ -184,7 +184,7 @@ class RelayRuntime:
             return None if session.closing else session
 
     def get_session_handle(self, session_id: str) -> Any:
-        """Return the Relay parent handle for a Hermes session, if active."""
+        """Return the Relay parent handle for a Duck Agent session, if active."""
         session = self.get_session(session_id)
         return None if session is None else session.handle
 
@@ -254,7 +254,7 @@ class RelayRuntime:
         data: Any = None,
         metadata: Any = None,
     ) -> bool:
-        """Emit a mark parented to the Hermes session identified by ``event``."""
+        """Emit a mark parented to the Duck Agent session identified by ``event``."""
         session = self.ensure_session(event)
         if session is None:
             return False
@@ -275,7 +275,7 @@ class RelayRuntime:
         tool_name: str,
         args: dict[str, Any],
     ) -> dict[str, Any]:
-        """Apply Relay request rewriting before Hermes authorizes a tool call."""
+        """Apply Relay request rewriting before Duck Agent authorizes a tool call."""
         if not self.managed_execution_enabled():
             return args
         request_intercepts = getattr(
@@ -405,7 +405,7 @@ RelayHost = RelayRuntime | NoopRelayRuntime
 
 
 class RelayHostRegistry:
-    """Own exactly one Relay host for each canonical Hermes profile."""
+    """Own exactly one Relay host for each canonical Duck Agent profile."""
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
@@ -467,7 +467,7 @@ class ConversationLease:
 
 @dataclass
 class RelayTurnContext:
-    """Runtime-only context for one Hermes turn or top-level task."""
+    """Runtime-only context for one Duck Agent turn or top-level task."""
 
     lease: ConversationLease
     turn_id: str
@@ -494,7 +494,7 @@ _CURRENT_TURN: contextvars.ContextVar[RelayTurnContext | None] = contextvars.Con
 
 
 class RelaySessionCoordinator:
-    """Own semantic conversation and turn lifetimes for Hermes core."""
+    """Own semantic conversation and turn lifetimes for Duck Agent core."""
 
     def __init__(self, registry: RelayHostRegistry = HOST_REGISTRY) -> None:
         self.registry = registry
@@ -877,7 +877,7 @@ def emit_mark(
     data: Any = None,
     metadata: Any = None,
 ) -> bool:
-    """Emit a fail-open Relay mark under a Hermes session."""
+    """Emit a fail-open Relay mark under a Duck Agent session."""
     runtime = get_runtime(create=False)
     if runtime is None:
         return False
@@ -899,7 +899,7 @@ def apply_tool_request_intercepts(
     tool_name: str,
     args: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return Relay-rewritten arguments at Hermes's authorization boundary."""
+    """Return Relay-rewritten arguments at Duck Agent'ss authorization boundary."""
     if not session_id:
         return args
     runtime = get_runtime(create=False)
@@ -913,7 +913,7 @@ def apply_tool_request_intercepts(
 
 
 def ensure_session(*, session_id: str, **context: Any) -> RelaySession | None:
-    """Create or return the shared Relay session used by Hermes core."""
+    """Create or return the shared Relay session used by Duck Agent core."""
     runtime = get_runtime()
     if runtime is None:
         return None
@@ -930,7 +930,7 @@ def run_in_session(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    """Run a scope, LLM, or tool API against a shared Hermes session."""
+    """Run a scope, LLM, or tool API against a shared Duck Agent session."""
     runtime = get_runtime()
     if runtime is None:
         raise RuntimeError("Hermes Relay runtime is unavailable")
@@ -948,7 +948,7 @@ async def run_in_session_async(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    """Await a Relay operation inside a shared Hermes session context."""
+    """Await a Relay operation inside a shared Duck Agent session context."""
     runtime = get_runtime()
     if runtime is None:
         raise RuntimeError("Hermes Relay runtime is unavailable")
@@ -993,7 +993,7 @@ def get_runtime(
     create: bool = True,
     profile_key: str | None = None,
 ) -> RelayRuntime | None:
-    """Return the Relay host for the active Hermes profile."""
+    """Return the Relay host for the active Duck Agent profile."""
     host = HOST_REGISTRY.for_profile(profile_key, create=create)
     return host if isinstance(host, RelayRuntime) else None
 

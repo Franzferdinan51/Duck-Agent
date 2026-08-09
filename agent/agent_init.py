@@ -311,7 +311,7 @@ def _resolve_compression_threshold(
 def _codex_gpt55_autoraise_notice_marker():
     """Path to the per-profile marker recording that the autoraise notice ran.
 
-    Lives under ``$HERMES_HOME`` (which is profile-scoped) alongside the other
+    Lives under ``$DUCK_AGENT_HOME`` (which is profile-scoped) alongside the other
     internal markers like ``.container-mode`` — so it is not a user-facing config
     key, and every profile tracks its own notice state independently.
     """
@@ -350,7 +350,7 @@ def _codex_gpt55_autoraise_notice_seen(autoraise: Dict[str, Any]) -> bool:
 def _record_codex_gpt55_autoraise_notice(autoraise: Dict[str, Any]) -> None:
     """Persist that the autoraise notice was shown for this profile/config state.
 
-    Best-effort: a read-only or missing ``$HERMES_HOME`` just means the notice
+    Best-effort: a read-only or missing ``$DUCK_AGENT_HOME`` just means the notice
     may show again next init, which is preferable to breaking agent init.
     """
     try:
@@ -574,10 +574,10 @@ def init_agent(
         platform (str): The interface platform the user is on (e.g. "cli", "telegram", "discord", "whatsapp").
             Used to inject platform-specific formatting hints into the system prompt.
         skip_context_files (bool): If True, skip auto-injection of project context files
-            (SOUL.md, .hermes.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / HERMES_HOME
+            (SOUL.md, .duck-agent.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / DUCK_AGENT_HOME
             into the system prompt. Use this for batch processing and data generation to avoid
             polluting trajectories with user-specific persona or project instructions.
-        load_soul_identity (bool): If True, still use ~/.hermes/SOUL.md as the primary
+        load_soul_identity (bool): If True, still use ~/.duck-agent/SOUL.md as the primary
             identity even when skip_context_files=True. Project context files from the cwd
             remain skipped.
     """

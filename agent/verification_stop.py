@@ -184,9 +184,9 @@ def _format_changed_paths(paths: list[str]) -> str:
 
 
 def _workspace_has_runnable_recipe(root: Any) -> bool:
-    """Whether the workspace has a runtime verify recipe ``hermes verify`` can run.
+    """Whether the workspace has a runtime verify recipe ``duck-agent verify`` can run.
 
-    True when a saved ``.hermes/environment.json`` manifest exists, or when
+    True when a saved ``.duck-agent/environment.json`` manifest exists, or when
     cheap static detection (:func:`agent.verify.recipes.detect_recipe`) finds a
     recipe with a start command. Deliberately fail-silent and cheap — this only
     decorates the nudge text; it must never break or slow the nudge path.

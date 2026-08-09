@@ -1082,7 +1082,7 @@ def _strip_historical_media(messages: List[Dict[str, Any]]) -> List[Dict[str, An
 
     Shallow copies of touched messages only; input is never mutated.
     Port of Kilo-Org/kilocode#9434 (adapted for the OpenAI-style message
-    shape the hermes compressor emits).
+    shape the duck-agent compressor emits).
     """
     if not messages:
         return messages
@@ -2616,7 +2616,7 @@ class ContextCompressor(ContextEngine):
         """Return True when a high rough preflight estimate is known-noisy.
 
         ``estimate_request_tokens_rough(..., tools=...)`` intentionally
-        overestimates so Hermes compresses before a provider rejects the
+        overestimates so Duck Agent compresses before a provider rejects the
         payload — but the margin is not a fixed percentage: CJK text is
         counted at ~1.7x its o200k cost and Responses-mode reasoning replay
         blobs at several times their billed cost, so heavy sessions can show

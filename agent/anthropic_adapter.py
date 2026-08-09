@@ -1,6 +1,6 @@
-"""Anthropic Messages API adapter for Hermes Agent.
+"""Anthropic Messages API adapter for Duck Agent.
 
-Translates between Hermes's internal OpenAI-style message format and
+Translates between Duck Agent'ss internal OpenAI-style message format and
 Anthropic's Messages API. Follows the same pattern as the codex_responses
 adapter — all provider-specific logic is isolated here.
 
@@ -519,7 +519,7 @@ def _is_kimi_family_endpoint(base_url: str | None, model: str | None = None) -> 
 
     Used to decide whether to drop Anthropic's ``thinking`` kwarg and to
     preserve unsigned reasoning_content-derived thinking blocks on replay.
-    See hermes-agent#13848, #17057.
+    See duck-agent#13848, #17057.
     """
     if _is_kimi_coding_endpoint(base_url):
         return True
@@ -548,7 +548,7 @@ def _is_deepseek_anthropic_endpoint(base_url: str | None) -> bool:
     policy used for Kimi's ``/coding`` endpoint.  The match is pinned to
     the ``/anthropic`` path so the OpenAI-compatible ``api.deepseek.com``
     base URL (which never reaches this adapter) is not misclassified.
-    See hermes-agent#16748.
+    See duck-agent#16748.
     """
     if not base_url_host_matches(base_url or "", "api.deepseek.com"):
         return False
@@ -1162,7 +1162,7 @@ def _refresh_oauth_token(creds: Dict[str, Any]) -> Optional[str]:
     Claude Code's OAuth refresh tokens are single-use: a successful refresh
     rotates the pair and invalidates the old refresh token. Claude Code itself
     also refreshes on its own schedule (IDE/CLI activity), so by the time
-    Hermes notices an expired token, Claude Code may have already rotated it.
+    Duck Agent notices an expired token, Claude Code may have already rotated it.
     POSTing our now-stale refresh token in that window races Claude Code and
     fails with ``invalid_grant``.
 
@@ -1295,7 +1295,7 @@ def _resolve_claude_code_token_from_credentials(creds: Optional[Dict[str, Any]] 
 def _prefer_refreshable_claude_code_token(env_token: str, creds: Optional[Dict[str, Any]]) -> Optional[str]:
     """Prefer Claude Code creds when a persisted env OAuth token would shadow refresh.
 
-    Hermes historically persisted setup tokens into ANTHROPIC_TOKEN. That makes
+    Duck Agent historically persisted setup tokens into ANTHROPIC_TOKEN. That makes
     later refresh impossible because the static env token wins before we ever
     inspect Claude Code's refreshable credential file. If we have a refreshable
     Claude Code credential record, prefer it over the static env OAuth token.
@@ -1319,7 +1319,7 @@ def _resolve_anthropic_pool_token() -> Optional[str]:
 
     Read-only: enumerates with ``clear_expired=False, refresh=False`` so a bare
     token *resolve* (which runs from diagnostic/read-only call sites such as
-    ``account_usage`` and ``hermes models``) never mutates ``~/.hermes/auth.json``
+    ``account_usage`` and ``duck-agent models``) never mutates ``~/.duck-agent/auth.json``
     or makes a network refresh call. Refresh-on-expiry is owned by the API call
     path's pool recovery, not the resolver.
     """
@@ -1358,12 +1358,12 @@ def resolve_anthropic_token() -> Optional[str]:
     """Resolve an Anthropic token from all available sources.
 
     Priority:
-      1. ANTHROPIC_TOKEN env var (OAuth/setup token saved by Hermes)
+      1. ANTHROPIC_TOKEN env var (OAuth/setup token saved by Duck Agent)
       2. CLAUDE_CODE_OAUTH_TOKEN env var
       3. ANTHROPIC_API_KEY env var (explicit regular API key)
       4. Claude Code credentials (~/.claude.json or ~/.claude/.credentials.json)
          — with automatic refresh if expired and a refresh token is available
-      5. Anthropic credential_pool OAuth entry (~/.hermes/auth.json)
+      5. Anthropic credential_pool OAuth entry (~/.duck-agent/auth.json)
 
     Returns the token string or None.
     """
@@ -1499,7 +1499,7 @@ def _generate_pkce() -> tuple:
 
 
 def run_hermes_oauth_login_pure() -> Optional[Dict[str, Any]]:
-    """Run Hermes-native OAuth PKCE flow and return credential state."""
+    """Run Duck Agent-native OAuth PKCE flow and return credential state."""
     import secrets
     import time
     import webbrowser
@@ -1629,7 +1629,7 @@ def run_hermes_oauth_login_pure() -> Optional[Dict[str, Any]]:
 
 
 def read_hermes_oauth_credentials() -> Optional[Dict[str, Any]]:
-    """Read Hermes-managed OAuth credentials from ~/.hermes/.anthropic_oauth.json."""
+    """Read Duck Agent-managed OAuth credentials from ~/.duck-agent/.anthropic_oauth.json."""
     oauth_file = _get_hermes_oauth_file()
     if oauth_file.exists():
         try:
@@ -2481,8 +2481,8 @@ def _manage_thinking_signatures(
     and will reject them outright.  Kimi's /coding and DeepSeek's /anthropic
     endpoints speak the Anthropic protocol upstream but require unsigned
     thinking blocks (synthesised from ``reasoning_content``) to round-trip on
-    replayed assistant tool-call messages.  See hermes-agent#13848 (Kimi) and
-    hermes-agent#16748 (DeepSeek).
+    replayed assistant tool-call messages.  See duck-agent#13848 (Kimi) and
+    duck-agent#16748 (DeepSeek).
 
     Nous Portal's ``/v1/messages`` route is the exception among third-party
     hosts: it proxies Claude to Anthropic/Vertex/Bedrock and validates the

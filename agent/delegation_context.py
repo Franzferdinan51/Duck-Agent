@@ -1,6 +1,6 @@
 """Context-local state for delegate_task child execution.
 
-The parent Hermes process may itself be a Kanban dispatcher worker with
+The parent Duck Agent process may itself be a Kanban dispatcher worker with
 HERMES_KANBAN_* variables in process env. delegate_task children run inside the
 same Python process, but they are not dispatcher-owned Kanban workers. This
 module lets code paths that resolve tool schemas or spawn subprocesses fail

@@ -2,7 +2,7 @@
 
 These values are the common petdex/Codex pet geometry. The real ``pet.json``
 usually only carries ``id``/``displayName``/``description``/``spritesheetPath``;
-row taxonomy is inferred from the atlas shape so Hermes can render both legacy
+row taxonomy is inferred from the atlas shape so Duck Agent can render both legacy
 8-row sheets and current 9-row Codex sheets.
 """
 
@@ -78,7 +78,7 @@ def resolve_cols(scale: float, unicode_cols: int = 0) -> int:
 class PetState(str, Enum):
     """Animation state a pet can be shown in.
 
-    These are Hermes' activity state names. They are not always identical to the
+    These are Duck Agent' activity state names. They are not always identical to the
     source atlas row names: Codex-format pets use rows like ``jumping`` /
     ``running`` while the UI keeps the shorter ``jump`` / ``run`` names.
     """

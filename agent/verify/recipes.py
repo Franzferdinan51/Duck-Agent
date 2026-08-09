@@ -15,8 +15,8 @@ Layer ownership vs :mod:`agent.coding_context`:
   not push runtime detection into it.
 - This module owns the *deep runtime recipe* — framework identification,
   bootstrap/build/test command inference, and crucially the start command,
-  port, and readiness path that let ``hermes verify`` boot the app and prove
-  it serves HTTP. The ``hermes verify`` CLI merges any project-facts verify
+  port, and readiness path that let ``duck-agent verify`` boot the app and prove
+  it serves HTTP. The ``duck-agent verify`` CLI merges any project-facts verify
   commands the recipe missed into its test list (see
   ``hermes_cli.verify_cmd._merge_project_facts_commands``) so the two layers
   extend rather than contradict each other.

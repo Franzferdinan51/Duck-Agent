@@ -3,7 +3,7 @@
 Kanban workers must end with ``kanban_complete`` or ``kanban_block``. Models
 (especially GLM / Qwen families) sometimes narrate the next step
 ("Let me write the report now") and stop with ``finish_reason=stop`` and no
-tool calls. Hermes treats that as a clean exit → ``rc=0`` → dispatcher
+tool calls. Duck Agent treats that as a clean exit → ``rc=0`` → dispatcher
 ``protocol_violation``.
 
 This module is policy-only: when a kanban worker tries to finish without a

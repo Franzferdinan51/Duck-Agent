@@ -12,7 +12,7 @@ credentials, cached system prompt) so it hits the same prefix cache and
 uses the same auth.  It runs with a tool whitelist limited to memory and
 skill management tools; everything else is denied at runtime.
 
-See the ``hermes-agent-dev`` skill (``references/self-improvement-loop.md``)
+See the ``duck-agent-dev`` skill (``references/self-improvement-loop.md``)
 for invariants and PR review criteria.
 """
 

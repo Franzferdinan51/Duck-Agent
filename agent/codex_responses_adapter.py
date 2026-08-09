@@ -271,7 +271,7 @@ def _clamp_responses_call_id(call_id: str) -> str:
 
     The codex app-server namespaces MCP tool call ids as
     ``codex_mcp__<server>__<tool>_<codex_call_id>``; with an ``exec-<uuid>``
-    component the built-in ``hermes-tools`` server already overflows 64 chars,
+    component the built-in ``duck-agent-tools`` server already overflows 64 chars,
     and the Responses API rejects the whole payload with a non-retryable HTTP
     400 that then replays every turn — permanently bricking the session.
 
@@ -422,7 +422,7 @@ def _chat_messages_to_responses_input(
     May 2026) we believed xAI's OAuth/SuperGrok ``/v1/responses`` surface
     rejected replayed ``encrypted_content`` reasoning items minted by
     prior turns, and we stripped them.  That decision was wrong — xAI
-    explicitly relies on Hermes threading encrypted reasoning back across
+    explicitly relies on Duck Agent threading encrypted reasoning back across
     turns for cross-turn coherence (the whole point of their partnership
     integration).  We now replay encrypted reasoning on every Responses
     transport (xAI, native Codex, custom relays) and let xAI tell us

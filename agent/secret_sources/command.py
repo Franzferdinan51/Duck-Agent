@@ -1,7 +1,7 @@
 """``command`` secret source — resolve secrets via a user-configured helper.
 
 Ports the security semantics of the desktop app's TypeScript
-``CommandSecretsProvider`` (hermes-desktop ``src/main/secrets/commandProvider.ts``)
+``CommandSecretsProvider`` (duck-agent-desktop ``src/main/secrets/commandProvider.ts``)
 to the Python agent.  The helper command (e.g. ``keepassxc-cli``,
 ``secret-tool``, or a script that cats a tmpfs env file) comes from
 ``secrets.command`` in ``config.yaml`` — NEVER from ``.env``, which holds
@@ -412,7 +412,7 @@ class CommandSource(SecretSource):
         secrets:
           command:
             enabled: true
-            command: "cat /run/user/1000/hermes-secrets.env"
+            command: "cat /run/user/1000/duck-agent-secrets.env"
             # or per-vault CLIs: keepassxc-cli / secret-tool / pass / gpg —
             # anything fast and NON-interactive.
     """

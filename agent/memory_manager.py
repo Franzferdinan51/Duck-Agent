@@ -508,7 +508,7 @@ class MemoryManager:
     def _strip_skill_scaffolding(text: str) -> Optional[str]:
         """Return memory-worthy user text, or None to skip the turn.
 
-        When a user invokes a /skill or /bundle, Hermes expands the turn into
+        When a user invokes a /skill or /bundle, Duck Agent expands the turn into
         a model-facing message that embeds the entire skill body. Feeding that
         verbatim to memory providers pollutes their stores/embeddings with
         prompt scaffolding instead of what the user actually asked. We recover
@@ -1224,7 +1224,7 @@ class MemoryManager:
     def initialize_all(self, session_id: str, **kwargs) -> None:
         """Initialize all providers.
 
-        Automatically injects ``hermes_home`` into *kwargs* so that every
+        Automatically injects ``duck_agent_home`` into *kwargs* so that every
         provider can resolve profile-scoped storage paths without importing
         ``get_hermes_home()`` themselves.
         """

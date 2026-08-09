@@ -501,11 +501,11 @@ def get_external_skills_dirs() -> List[Path]:
 
     Each entry is expanded (``~`` and ``${VAR}``) and resolved to an absolute
     path.  Only directories that actually exist are returned.  Duplicates and
-    paths that resolve to the local ``~/.hermes/skills/`` are silently skipped.
+    paths that resolve to the local ``~/.duck-agent/skills/`` are silently skipped.
 
     Cached in-process, keyed on ``config.yaml`` mtime — the function is
     called once per skill during banner / tool-registry scans, and YAML
-    parsing a non-trivial config dominates ``hermes`` cold-start time
+    parsing a non-trivial config dominates ``duck-agent`` cold-start time
     when the cache is absent.
     """
     config_path = get_config_path()
@@ -580,7 +580,7 @@ def get_external_skills_dirs() -> List[Path]:
 
 
 def get_all_skills_dirs() -> List[Path]:
-    """Return all skill directories: local ``~/.hermes/skills/`` first, then external.
+    """Return all skill directories: local ``~/.duck-agent/skills/`` first, then external.
 
     The local dir is always first (and always included even if it doesn't exist
     yet — callers handle that).  External dirs follow in config order.
@@ -594,7 +594,7 @@ def normalize_skill_lookup_name(identifier: str) -> str:
     """Normalize a skill identifier to a ``skill_view()``-safe relative path.
 
     Slash commands and cron jobs may store absolute paths to skills that live
-    under ``~/.hermes/skills/`` (including via symlinks) or configured
+    under ``~/.duck-agent/skills/`` (including via symlinks) or configured
     ``skills.external_dirs``. ``skill_view()`` rejects absolute names for
     security, so callers must translate trusted absolute paths to their
     relative form first.
@@ -658,7 +658,7 @@ def _resolve_for_skill_ownership(path) -> Path:
 def is_external_skill_path(path) -> bool:
     """Return True when ``path`` lives under a configured external skills dir.
 
-    ``skills.external_dirs`` are externally owned: Hermes can discover and view
+    ``skills.external_dirs`` are externally owned: Duck Agent can discover and view
     their skills, and foreground user-directed tool calls may still edit them,
     but autonomous lifecycle maintenance must treat them as read-only. This
     helper centralizes the ownership boundary so curator/reporting/tool paths do
@@ -704,7 +704,7 @@ def extract_skill_config_vars(frontmatter: Dict[str, Any]) -> List[Dict[str, Any
     Skills declare config.yaml settings they need via::
 
         metadata:
-          hermes:
+          duck-agent:
             config:
               - key: wiki.path
                 description: Path to the LLM Wiki knowledge base directory
@@ -877,7 +877,7 @@ def is_skill_description_truncated_for_prompt(frontmatter: Dict[str, Any]) -> bo
 def iter_skill_index_files(skills_dir: Path, filename: str):
     """Walk skills_dir yielding sorted paths matching *filename*.
 
-    Excludes Hermes metadata, VCS, virtualenv/dependency, cache, and skill
+    Excludes Duck Agent metadata, VCS, virtualenv/dependency, cache, and skill
     support directories. Support directories (references/templates/assets/
     scripts) can contain arbitrary markdown and even archived package
     ``SKILL.md`` files, but they are progressive-disclosure data loaded through

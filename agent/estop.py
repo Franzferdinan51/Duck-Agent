@@ -1,12 +1,12 @@
 """Global emergency stop (ESTOP) — a resumable pause for NEW work only.
 
-``hermes pause`` writes a sentinel file at ``$HERMES_HOME/ESTOP``;
-``hermes resume`` removes it. While the sentinel exists:
+``duck-agent pause`` writes a sentinel file at ``$DUCK_AGENT_HOME/ESTOP``;
+``duck-agent resume`` removes it. While the sentinel exists:
 
 * the cron scheduler skips dispatching due jobs (``cron/scheduler.py:tick``),
 * the embedded kanban dispatcher skips spawning workers
   (``gateway/kanban_watchers.py``),
-* new gateway turns get a brief "Hermes is paused" reply instead of an
+* new gateway turns get a brief "Duck Agent is paused" reply instead of an
   agent run (``gateway/run.py:_handle_message``).
 
 In-flight work is NEVER killed — this is pause-new-work, not panic/exit.
@@ -16,7 +16,7 @@ the very next check.
 
 The sentinel body is optional JSON ``{"reason": ..., "engaged_at": ...}``.
 A corrupt or empty file still counts as engaged (fail safe): the pause must
-hold even if the file was created by ``touch ~/.hermes/ESTOP``.
+hold even if the file was created by ``touch ~/.duck-agent/ESTOP``.
 
 Ported from: gastownhall/gastown estop.go (MIT). Related prior art:
 #26778 (/panic — kill/exit semantics; deliberately different, ours is
@@ -43,7 +43,7 @@ _logged_components: set[str] = set()
 
 
 def _hermes_home() -> Path:
-    """Resolve the active HERMES_HOME (profile-aware) at call time."""
+    """Resolve the active DUCK_AGENT_HOME (profile-aware) at call time."""
     try:
         from hermes_constants import get_hermes_home
         return get_hermes_home()
@@ -52,7 +52,7 @@ def _hermes_home() -> Path:
 
 
 def sentinel_path() -> Path:
-    """Path of the ESTOP sentinel under the active HERMES_HOME."""
+    """Path of the ESTOP sentinel under the active DUCK_AGENT_HOME."""
     return _hermes_home() / SENTINEL_NAME
 
 
