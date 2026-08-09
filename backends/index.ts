@@ -6,7 +6,7 @@
 
 import { GrokBuildHarness, getHarness as getGrokBuildHarness } from './grok-build'
 
-export type BackendType = 'grok-build' | 'hermes-compatible' | 'prime-agent'
+export type BackendType = 'grok-build' | 'duck-agent-compatible' | 'prime-agent'
 
 export interface BackendInfo {
   type: BackendType
@@ -30,7 +30,7 @@ export function getConfiguredBackend(): BackendType {
  * Check if a backend type is valid
  */
 export function isValidBackend(backend: string): backend is BackendType {
-  return ['grok-build', 'hermes-compatible', 'prime-agent'].includes(backend)
+  return ['grok-build', 'duck-agent-compatible', 'prime-agent'].includes(backend)
 }
 
 /**
@@ -45,7 +45,7 @@ export function getAvailableBackends(): BackendInfo[] {
       status: 'available'
     },
     {
-      type: 'hermes-compatible',
+      type: 'duck-agent-compatible',
       name: 'Hermes-Compatible',
       description: 'Hermes Agent compatibility mode',
       status: 'available'
@@ -69,7 +69,7 @@ export async function getBackend(): Promise<GrokBuildHarness> {
     case 'grok-build':
       return getGrokBuildHarness()
     
-    case 'hermes-compatible':
+    case 'duck-agent-compatible':
       // In Hermes-compatible mode, we use Grok Build with Hermes protocol
       console.log('[Duck Agent] Loading Hermes-compatible backend...')
       return getGrokBuildHarness()

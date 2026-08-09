@@ -55,9 +55,9 @@ test('returns grok-build when set', () => {
   delete process.env.DUCK_AGENT_BACKEND
 })
 
-test('returns hermes-compatible when set', () => {
-  process.env.DUCK_AGENT_BACKEND = 'hermes-compatible'
-  assertEqual(getConfiguredBackend(), 'hermes-compatible')
+test('returns duck-agent-compatible when set', () => {
+  process.env.DUCK_AGENT_BACKEND = 'duck-agent-compatible'
+  assertEqual(getConfiguredBackend(), 'duck-agent-compatible')
   delete process.env.DUCK_AGENT_BACKEND
 })
 
@@ -78,8 +78,8 @@ test('validates grok-build', () => {
   assertTrue(isValidBackend('grok-build'))
 })
 
-test('validates hermes-compatible', () => {
-  assertTrue(isValidBackend('hermes-compatible'))
+test('validates duck-agent-compatible', () => {
+  assertTrue(isValidBackend('duck-agent-compatible'))
 })
 
 test('validates prime-agent', () => {

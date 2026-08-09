@@ -81,12 +81,12 @@ The launcher currently recognizes:
 
 ```text
 grok-build
-hermes-compatible
+duck-agent-compatible
 prime-agent
 ```
 
 - `grok-build` — primary/default product path.
-- `hermes-compatible` — compatibility path while preserving/reusing Hermes-derived behavior.
+- `duck-agent-compatible` — compatibility path while preserving/reusing Hermes-derived behavior.
 - `prime-agent` — experimental path.
 
 Do not weaken the Grok Build architecture just to force every compatibility backend into the same lowest-common-denominator feature set.

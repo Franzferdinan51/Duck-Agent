@@ -207,7 +207,7 @@ await test('backend switching is honored', () => {
   process.env.DUCK_AGENT_BACKEND = 'grok-build'
   // Test loads correctly
   
-  process.env.DUCK_AGENT_BACKEND = 'hermes-compatible'
+  process.env.DUCK_AGENT_BACKEND = 'duck-agent-compatible'
   // Test loads correctly
   
   process.env.DUCK_AGENT_BACKEND = 'prime-agent'

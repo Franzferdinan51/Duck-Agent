@@ -52,8 +52,8 @@ await test('creates a session', () => {
 
 await test('creates a session with custom backend', () => {
   const manager = new SessionManager()
-  const session = manager.createSession('test', 'hermes-compatible')
-  assertEqual(session.backend, 'hermes-compatible')
+  const session = manager.createSession('test', 'duck-agent-compatible')
+  assertEqual(session.backend, 'duck-agent-compatible')
 })
 
 await test('gets a session by ID', () => {
