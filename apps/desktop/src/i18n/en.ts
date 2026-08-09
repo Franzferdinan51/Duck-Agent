@@ -1977,12 +1977,12 @@ export const en: Translations = {
   composer: {
     message: 'Message',
     wakingProfile: profile => `Waking up ${profile}…`,
-    placeholderStarting: 'Starting Hermes...',
-    placeholderReconnecting: 'Reconnecting to Hermes…',
+    placeholderStarting: 'Starting Duck Agent...',
+    placeholderReconnecting: 'Reconnecting to Duck Agent…',
     placeholderFollowUp: 'Send follow-up',
     newSessionPlaceholders: [
       'What are we building?',
-      'Give Hermes a task',
+      'Give Duck Agent a task',
       "What's on your mind?",
       'Describe what you need',
       'What should we tackle?',
