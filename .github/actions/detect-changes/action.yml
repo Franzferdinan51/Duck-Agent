@@ -138,8 +138,10 @@ runs:
         if [ "$EVENT_NAME" = "pull_request" ]; then
           # Git-tree responses can be truncated. Any API error or truncation is
           # uncertainty, so keep every availability lane enabled (fail open).
-          if ! BASE_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${BASE_SHA}?recursive=1")" || \
-             ! HEAD_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${HEAD_SHA}?recursive=1")"; then
+          if ! BASE_TREE_SHA="$(gh api "repos/${REPO}/commits/${BASE_SHA}" --jq '.commit.tree.sha')" || \
+             ! HEAD_TREE_SHA="$(gh api "repos/${REPO}/commits/${HEAD_SHA}" --jq '.commit.tree.sha')" || \
+             ! BASE_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${BASE_TREE_SHA}?recursive=1")" || \
+             ! HEAD_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${HEAD_TREE_SHA}?recursive=1")"; then
             echo "::warning::tree availability lookup failed; keeping all availability lanes enabled"
           elif [ "$(jq -r '.truncated // false' <<<"$BASE_TREE_JSON")" = "true" ] || \
                [ "$(jq -r '.truncated // false' <<<"$HEAD_TREE_JSON")" = "true" ]; then
@@ -175,6 +177,23 @@ runs:
               docker_scripts_available=false
             fi
           fi
+        fi
+
+        # A partial addition is still a change that the lane must validate.
+        # Force availability on whenever the relevant path category changed;
+        # otherwise an incomplete new asset set could silently skip its check.
+        if printf '%s\n' "${CHANGED:-}" | grep -Eq '^(package\.json|package-lock\.json|npm-shrinkwrap\.json)$'; then
+          root_npm_available=true
+        fi
+        if printf '%s\n' "${CHANGED:-}" | grep -q '^website/'; then
+          site_available=true
+        fi
+        if printf '%s\n' "${CHANGED:-}" | grep -Eq '^(Dockerfile|\.hadolint\.yaml)$'; then
+          hadolint_available=true
+          dockerfile_available=true
+        fi
+        if printf '%s\n' "${CHANGED:-}" | grep -q '^docker/'; then
+          docker_scripts_available=true
         fi
 
         echo "root_npm_available=${root_npm_available}" >> "$GITHUB_OUTPUT"
