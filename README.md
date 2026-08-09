@@ -1,121 +1,51 @@
 # Duck Agent
 
-Duck Agent is a desktop-first autonomous AI agent built on top of the Hermes desktop application architecture, with **Grok Build as the primary agent harness**.
+Duck Agent is a desktop-first autonomous-agent project built on the Hermes desktop foundation, with **Grok Build as its primary agent harness**.
 
-The goal is not to make another chat UI. Duck Agent should behave like a real agent in the same class as Hermes Agent or OpenClaw: it should be able to reason over a goal, use tools, work across multiple steps, keep session state, recover from failures, and continue until the task is actually complete.
+The project is under active development. The long-term goal is an agent that can work toward a user goal through an iterative loop of reasoning, tool use, observation, recovery, and completion—not just return a single chat response.
 
-## Core direction
+## Current status
 
-Duck Agent keeps the existing Hermes-derived desktop experience and builds a new agent runtime underneath it.
+The repository currently includes:
 
-**Do not strip out working Hermes desktop functionality just to make Grok Build fit.** The existing application is the foundation. Grok Build should become the primary orchestration/model harness that powers the agent capabilities behind that UI.
+- A `duck-agent` launcher and backend-selection layer.
+- A Grok Build backend as the primary path.
+- Hermes-compatible and Prime Agent compatibility/experimental paths.
+- Backend managers for sessions, skills, workflows, and MCP metadata.
+- Focused Python and TypeScript backend tests.
+- A Hermes-derived Electron desktop application under `apps/desktop/`.
 
-The intended architecture is:
+The complete autonomous runtime is still being built. Durable task state, resumable long-running work, approval policies, full desktop runtime integration, and production-ready tool feedback remain active development areas.
 
-```text
-Hermes-derived Desktop App
-        │
-        ▼
-Duck Agent Runtime
-        │
-        ├── sessions / memory
-        ├── goals / task state
-        ├── tool execution
-        ├── MCP servers
-        ├── skills
-        ├── workflows / sub-tasks
-        └── permissions / approvals
-        │
-        ▼
-Grok Build Harness (PRIMARY)
-        │
-        ├── model reasoning
-        ├── planning
-        ├── tool selection
-        └── iterative agent loop
-```
-
-Hermes compatibility may remain useful, but **Hermes is not the primary harness for Duck Agent**. Grok Build is.
-
-## What makes Duck Agent a real agent
-
-A completed Duck Agent runtime should support all of the following:
-
-- **Goal-oriented execution** — the user gives an objective, not just a single prompt.
-- **Iterative agent loop** — reason → act → observe → continue until complete.
-- **Tool use** — files, shell, Git, web, browser, MCP tools, APIs and app actions.
-- **Persistent sessions** — preserve task state and conversation state across steps.
-- **Memory** — short-term working context plus durable user/project memory where enabled.
-- **Multi-step planning** — break large tasks into steps and track progress.
-- **Retries and recovery** — recover from failed tools, bad outputs and transient errors.
-- **Long-running work** — jobs should not be limited to one request/response round trip.
-- **Subtasks / delegation** — the runtime should be able to split work when appropriate.
-- **Human approval gates** — destructive or sensitive actions can require confirmation.
-- **MCP support** — external tools should be first-class runtime capabilities.
-- **Skills** — reusable instructions/workflows should be loadable by the agent.
-- **Observable execution** — the UI should expose what the agent is doing, its current task, tools and results.
-
-A model response by itself is not an agent. The runtime must own the loop.
-
-## Primary harness: Grok Build
-
-Grok Build is the default and primary harness for Duck Agent.
-
-```bash
-DUCK_AGENT_BACKEND=grok-build ./duck-agent
-```
-
-The Grok Build integration should eventually provide:
-
-- model requests and streaming
-- native tool/function calling
-- iterative execution until completion
-- tool-result feedback into the model
-- context/session management
-- cancellation and timeout handling
-- structured events for the desktop UI
-- model configuration and provider credentials
-
-The launcher and backend-selection layer are working today. The desktop runtime and full
-tool-feedback loop remain active development areas; the status below distinguishes what is
-usable from what is planned.
-
-## Hermes-derived desktop app
-
-The desktop application under [`apps/desktop`](apps/desktop) comes from the Hermes desktop application and is being evolved into Duck Agent.
-
-**Preserve existing useful functionality.** When replacing Hermes-specific runtime wiring, prefer adapting it behind stable UI interfaces instead of deleting features.
-
-The desktop app should become the control surface for the agent:
-
-- conversations
-- goals and tasks
-- agent run status
-- tool activity
-- terminal
-- files/workspace
-- MCP servers
-- skills
-- model/provider settings
-- permissions and approvals
-- session history
-
-## Repository layout
+## Architecture
 
 ```text
-Duck-Agent/
-├── apps/
-│   └── desktop/          # Hermes-derived Electron/React desktop application
-├── duck_agent/           # Python launcher/backend-selection compatibility layer
-├── agent/                # Agent runtime, tools, sessions, and providers
-├── apps/desktop/         # Electron/React desktop application
-├── tests/                # Backend and integration tests
-├── AGENTS.md             # Development invariants for coding agents
-├── duck-agent            # CLI launcher
-└── README.md
+┌──────────────────────────────┐
+│ Hermes-derived desktop app  │
+│ conversations, workspace,   │
+│ settings, terminal, status  │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│ Duck Agent runtime            │
+│ sessions, tasks, tools, MCP, │
+│ skills, workflows, state     │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│ Grok Build harness           │
+│ reasoning, planning, actions │
+│ and iterative execution      │
+└──────────────────────────────┘
 ```
+
+Grok Build is the primary product direction. The other backend paths provide compatibility or experimentation without defining the product around the lowest common denominator.
 
 ## Quick start
+
+Clone the repository and inspect the launcher help:
 
 ```bash
 git clone https://github.com/Franzferdinan51/Duck-Agent.git
@@ -124,90 +54,78 @@ chmod +x ./duck-agent
 ./duck-agent --help
 ```
 
-Run the primary backend:
+To select the primary backend explicitly:
 
 ```bash
 DUCK_AGENT_BACKEND=grok-build ./duck-agent
 ```
 
-## Backend policy
+Backend names currently exposed by the compatibility layer are:
 
-The backend names currently exposed by the compatibility layer are:
+- `grok-build` — primary backend.
+- `hermes-compatible` — compatibility backend.
+- `prime-agent` — experimental backend.
 
-- `grok-build` — **primary / default**
-- `hermes-compatible` — compatibility path
-- `prime-agent` — experimental path
+Provider configuration depends on the selected backend and is supplied through the environment or local configuration used by that backend. Do not commit credentials to the repository.
 
-These should not be treated as three equal product directions. Duck Agent should be designed around the Grok Build runtime while keeping the backend boundary clean enough that other harnesses can be supported later.
+## Repository layout
 
-## Plans and goals
-
-### Near-term goals
-
-1. Make Grok Build the complete reason → act → observe → recover loop.
-2. Connect tool results, cancellation, retries, approvals, and structured run events.
-3. Persist goals, sessions, and resumable task state outside the UI process.
-4. Expose live agent progress, tool activity, and failures in the desktop UI.
-5. Keep Hermes compatibility, terminal, workspace, settings, skills, and MCP features working.
-
-### Delivery plan
-
-1. Run Python backend tests and desktop type/lint/UI tests.
-2. Fix reproducible runtime and boot failures with focused regression tests.
-3. Build the Electron application and validate the packaged output.
-4. Install and launch the built app locally for hands-on testing.
-5. Push verified changes to `main`.
-
-## Development priorities
-
-1. Make the Grok Build harness perform real model requests instead of placeholder responses.
-2. Implement the persistent reason/action/observation loop.
-3. Wire actual MCP server processes and tool calls into the loop.
-4. Connect the agent runtime to the existing Hermes-derived desktop UI.
-5. Preserve and rewire existing desktop features rather than removing them.
-6. Add durable sessions, task state and recovery.
-7. Add approval/permission boundaries for dangerous actions.
-8. Stabilize CI and integration tests around real agent behavior.
-9. Add long-running `/goal`-style execution with progress and resumability.
-10. Treat local-model support as a future first-class provider path without changing the Grok Build primary-harness direction today.
-
-## Testing
-
-```bash
-python3 run_tests.py
-./run_all_tests.sh
+```text
+Duck-Agent/
+├── apps/desktop/       # Electron/React desktop application
+├── backends/            # Backend and harness code
+├── scripts/             # Installer, CI, and project scripts
+├── tests/               # Python backend and integration tests
+├── duck-agent           # Command-line launcher
+├── run_all_tests.sh     # Aggregate local test runner
+└── README.md
 ```
 
-Desktop development requires Node.js 22.22+ and the dependencies in
-`apps/desktop/package.json`:
+`AGENTS.md` contains development invariants and repository guidance for contributors and coding agents. It is contributor documentation, not a command reference for end users.
+
+## Development and testing
+
+Python dependency and CI setup is still being stabilized. Use the repository's current test files and workflow definitions as the source of truth while that work proceeds.
+
+The tracked Python E2E/backend test can be run directly when `pytest` is available:
 
 ```bash
-cd apps/desktop
-npm install
-npm run check:lint
-npm run test:ui
-npm run test:desktop:platforms
-npm run build
+python3 -m pytest tests/test_e2e_backend.py -v --tb=short
 ```
 
-To install a locally packaged macOS build after verification:
+The repository also contains `run_all_tests.sh`, which is intended to provide an aggregate local test run. Its coverage and environment assumptions are under active repair; inspect the script and current CI status before relying on it as a release gate.
+
+After installing the project's TypeScript test dependencies, backend suites can also be run individually with `tsx`, for example:
 
 ```bash
-cd apps/desktop
-npm run pack
-open release/mac-arm64/Duck\ Agent.app
+npx tsx backends/tests/test-index.ts
 ```
 
-The important integration tests should increasingly verify agent behavior, not just module loading. A useful test should prove that Duck Agent can accept a goal, invoke one or more tools, consume the observations and finish with a correct result.
+Desktop development uses the package configuration in `apps/desktop/package.json`. See that file for the available scripts and required Node.js version before installing dependencies or running desktop checks.
 
-## Status
+The test suite is evolving alongside the runtime. A passing focused test suite does not yet mean that every desktop, packaging, or long-running-agent workflow is complete.
 
-Duck Agent is under active development. The backend selector, launcher, and focused
-backend integration tests are operational. The complete autonomous Grok Build loop,
-desktop wiring, and durable task/session features are the current implementation goals.
+## Roadmap
 
-That gap is intentional development work — **the target is a real autonomous desktop agent, not a renamed chatbot.**
+Planned runtime and desktop capabilities include:
 
-## Repository
+- A complete reason → act → observe → recover loop.
+- Durable sessions, goals, task state, and resumability.
+- Real tool execution and MCP server transport.
+- Skills and working/durable memory integration.
+- Retries, cancellation, timeouts, and approval gates.
+- Subtask decomposition and delegation.
+- Structured progress and observability in the desktop UI.
+- Broader provider and local-model support while keeping Grok Build primary.
 
-https://github.com/Franzferdinan51/Duck-Agent
+## Contributing
+
+Contributions should preserve useful existing desktop functionality, keep integration tests deterministic where possible, and add behavioral coverage for new agent semantics. Changes that affect the runtime should explain how state, tools, failures, and user-visible progress are handled.
+
+Please read `AGENTS.md` before making repository changes. It contains the detailed architecture and development invariants that do not belong in the public README.
+
+## Links
+
+- Repository: <https://github.com/Franzferdinan51/Duck-Agent>
+- Development guidance: [`AGENTS.md`](AGENTS.md)
+- Desktop application: [`apps/desktop/`](apps/desktop/)
