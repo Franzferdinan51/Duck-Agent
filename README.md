@@ -73,6 +73,34 @@ Backend names currently exposed by the compatibility layer are:
 
 Provider configuration depends on the selected backend and is supplied through the environment or local configuration used by that backend. Do not commit credentials to the repository.
 
+### Hermes-style Duck-Agent CLI
+
+Duck-Agent also provides a local-first command surface inspired by the Hermes Agent CLI and the governed workflow model of oh-my-hermes. It reports what is planned, running, or verified rather than implying that an executor's report is proof of completion.
+
+```bash
+python3 -m duck_agent.cli --help
+python3 -m duck_agent.cli status
+python3 -m duck_agent.cli doctor
+python3 -m duck_agent.cli backends
+python3 -m duck_agent.cli workflows
+python3 -m duck_agent.cli capabilities
+```
+
+Available workflows are `plan`, `research`, `code`, and `operate`. Duck-Agent's local state defaults to `~/.duck-agent`; it does not use or overwrite an existing Hermes `~/.hermes` home. `DUCK_AGENT_HOME` or `--home` can override the state location.
+
+### Desktop application
+
+The Electron application lives under `apps/desktop/` and requires Node.js 22.22 or newer. From the desktop directory:
+
+```bash
+cd apps/desktop
+npm install
+npm run build
+npm run start
+```
+
+For renderer hot reload during development, use `npm run dev`. The desktop build and runtime use Duck-Agent's isolated local home by default.
+
 ## Repository layout
 
 ```text
