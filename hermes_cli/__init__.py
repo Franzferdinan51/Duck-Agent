@@ -1,22 +1,19 @@
 """
-Hermes CLI - Unified command-line interface for Hermes Agent.
+Duck Agent CLI - Unified command-line interface for Duck Agent.
 
 Provides subcommands for:
-- hermes chat          - Interactive chat (same as ./hermes)
-- hermes gateway       - Run gateway in foreground
-- hermes gateway start - Start gateway service
-- hermes gateway stop  - Stop gateway service
-- hermes setup         - Interactive setup wizard
-- hermes status        - Show status of all components
-- hermes cron          - Manage cron jobs
+- duck-agent chat          - Interactive chat (same as ./duck-agent)
+- duck-agent gateway       - Run gateway in foreground
+- duck-agent gateway start - Start gateway service
+- duck-agent gateway stop  - Stop gateway service
+- duck-agent setup         - Interactive setup wizard
+- duck-agent status        - Show status of all components
+- duck-agent cron          - Manage cron jobs
 """
-
 import os
 import sys
-
-__version__ = "0.20.0"
-__release_date__ = "2026.8.3"
-
+__version__ = '0.20.0'
+__release_date__ = '2026.8.3'
 
 def _ensure_utf8():
     """Force UTF-8 stdout/stderr to prevent UnicodeEncodeError crashes.
@@ -31,7 +28,7 @@ def _ensure_utf8():
     The CLI prints box-drawing characters (┌│├└─) and the ⚕ glyph in the setup
     wizard, doctor, and status banners. Encoding those under a non-UTF-8 codec
     raises an unhandled UnicodeEncodeError that crashes the command before it
-    can even start — e.g. `hermes setup` on a fresh Pi.
+    can even start — e.g. `duck-agent setup` on a fresh Pi.
 
     This runs at import time so it protects every CLI subcommand, on any
     platform. It re-wraps stdout/stderr as UTF-8 when their encoding is not
@@ -50,43 +47,25 @@ def _ensure_utf8():
     harmless idempotent no-op once we have already repaired the streams here.
     """
     repaired = False
-
-    for stream_name in ("stdout", "stderr"):
+    for stream_name in ('stdout', 'stderr'):
         stream = getattr(sys, stream_name, None)
         if stream is None:
             continue
         try:
-            encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
-            if encoding == "utf8":
+            encoding = (getattr(stream, 'encoding', '') or '').lower().replace('-', '')
+            if encoding == 'utf8':
                 continue
-
-            # Preferred: reconfigure the existing TextIOWrapper in place. This
-            # preserves object identity so any code already holding a reference
-            # to the old sys.stdout benefits from the repair too.
-            reconfigure = getattr(stream, "reconfigure", None)
+            reconfigure = getattr(stream, 'reconfigure', None)
             if callable(reconfigure):
-                reconfigure(encoding="utf-8", errors="replace")
+                reconfigure(encoding='utf-8', errors='replace')
                 repaired = True
                 continue
-
-            # Fallback: reopen the underlying file descriptor as UTF-8. Used
-            # for streams that don't expose reconfigure() (e.g. some wrapped
-            # or replaced streams). closefd=False keeps the original fd open.
-            new_stream = open(
-                stream.fileno(), "w", encoding="utf-8",
-                errors="replace", buffering=1, closefd=False,
-            )
+            new_stream = open(stream.fileno(), 'w', encoding='utf-8', errors='replace', buffering=1, closefd=False)
             setattr(sys, stream_name, new_stream)
             repaired = True
         except (AttributeError, OSError, ValueError):
             pass
-
-    # Only nudge child processes toward UTF-8 when we actually detected a
-    # non-UTF-8 locale. On a healthy UTF-8 host children inherit UTF-8 from the
-    # locale already, so leave the environment untouched (minimal footprint).
     if repaired:
-        os.environ.setdefault("PYTHONUTF8", "1")
-        os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-
-
+        os.environ.setdefault('PYTHONUTF8', '1')
+        os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 _ensure_utf8()

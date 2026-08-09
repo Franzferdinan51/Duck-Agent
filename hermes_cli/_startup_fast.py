@@ -22,95 +22,61 @@ the day it landed.
 sync (this module deliberately only PROBES existence/typos cheaply and errs
 toward the slow path, which then does the authoritative parse).
 """
-
 from __future__ import annotations
-
 import os
 import sys
-
-__all__ = [
-    "project_root_str",
-    "ensure_project_root_on_path",
-    "is_termux_env",
-    "is_termux_fast_version_argv",
-    "is_global_fast_version_argv",
-    "is_container_startup_environment",
-    "active_profile_may_override_home",
-    "container_mode_may_be_active",
-    "read_openai_version",
-    "read_install_method",
-    "print_fast_version_info",
-    "try_fast_version",
-]
-
+__all__ = ['project_root_str', 'ensure_project_root_on_path', 'is_termux_env', 'is_termux_fast_version_argv', 'is_global_fast_version_argv', 'is_container_startup_environment', 'active_profile_may_override_home', 'container_mode_may_be_active', 'read_openai_version', 'read_install_method', 'print_fast_version_info', 'try_fast_version']
 
 def project_root_str() -> str:
     """Repo root as a str — the single source for main.py's PROJECT_ROOT."""
     return os.path.realpath(os.path.join(os.path.dirname(__file__), os.pardir))
 
-
 def ensure_project_root_on_path() -> None:
     """Put the project root at sys.path[0], deduping realpath-equivalents."""
     project_root = project_root_str()
     normalized_root = os.path.normcase(os.path.realpath(project_root))
-    sys.path[:] = [
-        entry
-        for entry in sys.path
-        if not entry
-        or os.path.normcase(os.path.realpath(entry)) != normalized_root
-    ]
+    sys.path[:] = [entry for entry in sys.path if not entry or os.path.normcase(os.path.realpath(entry)) != normalized_root]
     sys.path.insert(0, project_root)
-
 
 def is_termux_env() -> bool:
     """Tiny Termux check for pre-import startup shortcuts."""
-    prefix = os.environ.get("PREFIX", "")
-    return bool(
-        os.environ.get("TERMUX_VERSION")
-        or "com.termux/files/usr" in prefix
-        or prefix.startswith("/data/data/com.termux/")
-    )
-
+    prefix = os.environ.get('PREFIX', '')
+    return bool(os.environ.get('TERMUX_VERSION') or 'com.termux/files/usr' in prefix or prefix.startswith('/data/data/com.termux/'))
 
 def is_termux_fast_version_argv(argv: list[str]) -> bool:
-    return argv in (["--version"], ["-V"], ["version"])
-
+    return argv in (['--version'], ['-V'], ['version'])
 
 def is_global_fast_version_argv(argv: list[str]) -> bool:
-    return argv in (["--version"], ["-V"])
-
+    return argv in (['--version'], ['-V'])
 
 def is_container_startup_environment() -> bool:
     """True when we're already INSIDE a container (fast path is then safe)."""
-    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+    if os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv'):
         return True
     try:
-        with open("/proc/1/cgroup", encoding="utf-8") as handle:
+        with open('/proc/1/cgroup', encoding='utf-8') as handle:
             cgroup = handle.read()
     except OSError:
         return False
-    return "docker" in cgroup or "podman" in cgroup or "/lxc/" in cgroup
-
+    return 'docker' in cgroup or 'podman' in cgroup or '/lxc/' in cgroup
 
 def active_profile_may_override_home(hermes_root: str) -> bool:
-    """Cheap probe: does an active non-default profile redirect HERMES_HOME?"""
-    active_profile = os.path.join(hermes_root, "active_profile")
+    """Cheap probe: does an active non-default profile redirect DUCK_AGENT_HOME?"""
+    active_profile = os.path.join(hermes_root, 'active_profile')
     try:
         if os.path.exists(active_profile):
-            with open(active_profile, encoding="utf-8") as handle:
+            with open(active_profile, encoding='utf-8') as handle:
                 active = handle.read().strip()
-            return bool(active and active != "default")
+            return bool(active and active != 'default')
     except (OSError, UnicodeDecodeError):
         pass
     return False
 
-
 def _resolved_home() -> str:
-    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    hermes_home = os.environ.get('DUCK_AGENT_HOME', '').strip()
     if hermes_home:
         return hermes_home
-    return os.path.join(os.path.expanduser("~"), ".hermes")
-
+    return os.path.join(os.path.expanduser('~'), '.duck-agent')
 
 def container_mode_may_be_active() -> bool:
     """Conservative probe for NixOS container-mode routing.
@@ -121,46 +87,39 @@ def container_mode_may_be_active() -> bool:
     host's version instead of the container's. Hence: any profile
     ambiguity → assume container mode may be active.
     """
-    if os.environ.get("HERMES_DEV") == "1":
+    if os.environ.get('HERMES_DEV') == '1':
         return False
     if is_container_startup_environment():
         return False
-
-    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    hermes_home = os.environ.get('DUCK_AGENT_HOME', '').strip()
     if hermes_home:
-        if os.path.exists(os.path.join(hermes_home, ".container-mode")):
+        if os.path.exists(os.path.join(hermes_home, '.container-mode')):
             return True
         parent_name = os.path.basename(os.path.dirname(os.path.normpath(hermes_home)))
-        return (
-            parent_name != "profiles"
-            and active_profile_may_override_home(hermes_home)
-        )
-
-    default_home = os.path.join(os.path.expanduser("~"), ".hermes")
+        return parent_name != 'profiles' and active_profile_may_override_home(hermes_home)
+    default_home = os.path.join(os.path.expanduser('~'), '.duck-agent')
     if active_profile_may_override_home(default_home):
         return True
-    return os.path.exists(os.path.join(default_home, ".container-mode"))
-
+    return os.path.exists(os.path.join(default_home, '.container-mode'))
 
 def read_openai_version() -> str | None:
     """Read OpenAI SDK version without importing ``importlib.metadata``."""
     for base in sys.path:
         if not base:
             base = os.getcwd()
-        version_file = os.path.join(base, "openai", "_version.py")
+        version_file = os.path.join(base, 'openai', '_version.py')
         try:
-            with open(version_file, encoding="utf-8") as handle:
+            with open(version_file, encoding='utf-8') as handle:
                 for line in handle:
                     stripped = line.strip()
-                    if not stripped.startswith("__version__"):
+                    if not stripped.startswith('__version__'):
                         continue
-                    _key, _sep, value = stripped.partition("=")
-                    value = value.split("#", 1)[0].strip().strip("\"'")
+                    _key, _sep, value = stripped.partition('=')
+                    value = value.split('#', 1)[0].strip().strip('"\'')
                     return value or None
         except OSError:
             continue
     return None
-
 
 def read_install_method() -> str | None:
     """Read the installer's ``.install_method`` stamp, if present.
@@ -169,35 +128,30 @@ def read_install_method() -> str | None:
     order) — the managed/git/pip fallbacks need heavier imports and stay on
     the slow path. On the fast path home ambiguity is already excluded:
     ``container_mode_may_be_active()`` bails to the slow path whenever a
-    non-default profile might redirect HERMES_HOME.
+    non-default profile might redirect DUCK_AGENT_HOME.
     """
-    stamp = os.path.join(_resolved_home(), ".install_method")
+    stamp = os.path.join(_resolved_home(), '.install_method')
     try:
-        with open(stamp, encoding="utf-8") as handle:
+        with open(stamp, encoding='utf-8') as handle:
             method = handle.read().strip().lower()
         return method or None
     except OSError:
         return None
 
-
 def print_fast_version_info() -> None:
     from hermes_cli import __release_date__, __version__
-
-    print(f"Hermes Agent v{__version__} ({__release_date__})")
-    print(f"Install directory: {project_root_str()}")
+    print(f'Duck Agent v{__version__} ({__release_date__})')
+    print(f'Install directory: {project_root_str()}')
     install_method = read_install_method()
     if install_method:
-        print(f"Install method: {install_method}")
-
-    print(f"Python: {sys.version.split()[0]}")
-
+        print(f'Install method: {install_method}')
+    print(f'Python: {sys.version.split()[0]}')
     openai_version = read_openai_version()
-    print(f"OpenAI SDK: {openai_version}" if openai_version else "OpenAI SDK: Not installed")
-    print("Run 'hermes version' for update status.")
+    print(f'OpenAI SDK: {openai_version}' if openai_version else 'OpenAI SDK: Not installed')
+    print("Run 'duck-agent version' for update status.")
 
-
-def try_fast_version(argv: list[str] | None = None) -> bool:
-    """Handle ``hermes --version`` before the heavy import wall.
+def try_fast_version(argv: list[str] | None=None) -> bool:
+    """Handle ``duck-agent --version`` before the heavy import wall.
 
     Termux keeps its historical contract (also accepts the ``version``
     subcommand + the HERMES_TERMUX_DISABLE_FAST_CLI escape hatch). Everywhere
@@ -208,7 +162,7 @@ def try_fast_version(argv: list[str] | None = None) -> bool:
     if argv is None:
         argv = sys.argv[1:]
     is_termux = is_termux_env()
-    if is_termux and os.environ.get("HERMES_TERMUX_DISABLE_FAST_CLI") == "1":
+    if is_termux and os.environ.get('HERMES_TERMUX_DISABLE_FAST_CLI') == '1':
         return False
     if is_termux:
         if not is_termux_fast_version_argv(argv):
@@ -217,6 +171,5 @@ def try_fast_version(argv: list[str] | None = None) -> bool:
         return False
     elif container_mode_may_be_active():
         return False
-
     print_fast_version_info()
     return True

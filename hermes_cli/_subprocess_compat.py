@@ -1,6 +1,6 @@
 """Windows subprocess compatibility helpers.
 
-Hermes is developed on Linux / macOS and tested natively on Windows too.
+Duck Agent is developed on Linux / macOS and tested natively on Windows too.
 Several common subprocess patterns break silently-or-loudly on Windows:
 
 * ``["npm", "install", ...]`` — on Windows ``npm`` is ``npm.cmd``, a batch
@@ -25,35 +25,14 @@ codebase doesn't sprinkle ``if sys.platform == "win32":`` everywhere.
 code paths is safe by design.  That's the "do no damage on POSIX"
 guarantee.
 """
-
 from __future__ import annotations
-
 import os
 import shutil
 import subprocess
 import sys
 from typing import Mapping, Sequence
-
-__all__ = [
-    "IS_WINDOWS",
-    "resolve_node_command",
-    "suppress_platform_ver_console",
-    "windows_detach_flags",
-    "windows_detach_flags_without_breakaway",
-    "windows_hide_flags",
-    "windows_detach_popen_kwargs",
-    "bounded_git_probe",
-    "noninteractive_git_env",
-]
-
-
-IS_WINDOWS = sys.platform == "win32"
-
-
-# -----------------------------------------------------------------------------
-# Node ecosystem launcher resolution
-# -----------------------------------------------------------------------------
-
+__all__ = ['IS_WINDOWS', 'resolve_node_command', 'suppress_platform_ver_console', 'windows_detach_flags', 'windows_detach_flags_without_breakaway', 'windows_hide_flags', 'windows_detach_popen_kwargs', 'bounded_git_probe', 'noninteractive_git_env']
+IS_WINDOWS = sys.platform == 'win32'
 
 def resolve_node_command(name: str, argv: Sequence[str]) -> list[str]:
     """Resolve a Node-ecosystem command name to an absolute-path argv.
@@ -91,46 +70,10 @@ def resolve_node_command(name: str, argv: Sequence[str]) -> list[str]:
     if resolved:
         return [resolved, *argv]
     return [name, *argv]
-
-
-# -----------------------------------------------------------------------------
-# Detached / hidden process creation
-# -----------------------------------------------------------------------------
-
-
-# Win32 CreationFlags — defined here rather than imported from subprocess
-# because CREATE_NO_WINDOW and DETACHED_PROCESS aren't guaranteed to be
-# present on stdlib subprocess on older Pythons or non-Windows builds.
-_CREATE_NEW_PROCESS_GROUP = 0x00000200
-# DETACHED_PROCESS is intentionally NOT part of any flag bundle here — do not
-# re-add it.  Two reasons (the recurring console-flash bug #54220 / #56747):
-#
-# 1. MSDN (Process Creation Flags): CREATE_NO_WINDOW "is ignored if used with
-#    either CREATE_NEW_CONSOLE or DETACHED_PROCESS".  Combining them means
-#    DETACHED_PROCESS governs and the no-window bit is dead.
-# 2. A DETACHED_PROCESS child has NO console at all, so every console-subsystem
-#    descendant it ever spawns (git, gh, cmd, node, wmic, powershell, …) must
-#    allocate its OWN console — a visible flash per spawn, including spawns
-#    inside third-party libraries that no per-call-site CREATE_NO_WINDOW sweep
-#    can reach.  A CREATE_NO_WINDOW child instead OWNS a hidden console that
-#    all descendants inherit, making "no flashing windows" a property of the
-#    one daemon launch.  Root cause isolated + A/B verified on Windows 11 by
-#    the desktop backend fix (commit aa2ae36c3f): with per-site hide flags
-#    neutered, naive git/gh/cmd spawns don't flash under a hidden-console
-#    parent and do flash under a console-less one.
-_DETACHED_PROCESS = 0x00000008  # kept for reference; must stay out of bundles
-_CREATE_NO_WINDOW = 0x08000000
-# Escape any Win32 job object the parent process belongs to. Without this,
-# a detached child still inherits its parent's job object membership, and
-# when that parent (Electron, Tauri, Windows Terminal, the Desktop GUI's
-# bootstrap-installer) dies, the OS tears down the whole job — taking the
-# "detached" child with it. Critical for the post-update gateway watcher:
-# Electron spawns the Tauri updater inside its own job, the updater spawns
-# the watcher subprocess; without BREAKAWAY the watcher dies the instant
-# Electron exits, so the gateway never gets respawned after a `hermes
-# update` triggered from the GUI. See fix/windows-gateway-reliability.
-_CREATE_BREAKAWAY_FROM_JOB = 0x01000000
-
+_CREATE_NEW_PROCESS_GROUP = 512
+_DETACHED_PROCESS = 8
+_CREATE_NO_WINDOW = 134217728
+_CREATE_BREAKAWAY_FROM_JOB = 16777216
 
 def windows_detach_flags() -> int:
     """Return Win32 creationflags that detach a child from the parent
@@ -172,12 +115,7 @@ def windows_detach_flags() -> int:
     """
     if not IS_WINDOWS:
         return 0
-    return (
-        _CREATE_NEW_PROCESS_GROUP
-        | _CREATE_NO_WINDOW
-        | _CREATE_BREAKAWAY_FROM_JOB
-    )
-
+    return _CREATE_NEW_PROCESS_GROUP | _CREATE_NO_WINDOW | _CREATE_BREAKAWAY_FROM_JOB
 
 def windows_detach_flags_without_breakaway() -> int:
     """Same as :func:`windows_detach_flags` minus ``CREATE_BREAKAWAY_FROM_JOB``.
@@ -208,7 +146,6 @@ def windows_detach_flags_without_breakaway() -> int:
         return 0
     return _CREATE_NEW_PROCESS_GROUP | _CREATE_NO_WINDOW
 
-
 def windows_hide_flags() -> int:
     """Return Win32 creationflags that merely hide the child's console
     window without detaching the child.  0 on non-Windows.
@@ -227,7 +164,6 @@ def windows_hide_flags() -> int:
     if not IS_WINDOWS:
         return 0
     return _CREATE_NO_WINDOW
-
 
 def suppress_platform_ver_console() -> None:
     """Stub out ``platform._syscmd_ver`` on Windows so it can never flash a
@@ -248,23 +184,19 @@ def suppress_platform_ver_console() -> None:
     CPython 3.11 (``platform()`` → ``Windows-10-10.0.xxxxx-SP0`` either way).
 
     Call early, before heavyweight imports — the flash typically happens
-    during a dependency's import, not from Hermes' own code.
+    during a dependency's import, not from Duck Agent' own code.
     """
     if not IS_WINDOWS:
         return
     try:
         import platform
+        if hasattr(platform, '_syscmd_ver'):
 
-        if hasattr(platform, "_syscmd_ver"):
-            def _quiet_syscmd_ver(system="", release="", version="",
-                                  supported_platforms=("win32", "win16", "dos")):
-                return system, release, version
-
+            def _quiet_syscmd_ver(system='', release='', version='', supported_platforms=('win32', 'win16', 'dos')):
+                return (system, release, version)
             platform._syscmd_ver = _quiet_syscmd_ver
     except Exception:
-        # Purely cosmetic hardening — never let it break startup.
         pass
-
 
 def windows_detach_popen_kwargs() -> dict:
     """Return a dict of Popen kwargs that detach a child on Windows and
@@ -295,21 +227,13 @@ def windows_detach_popen_kwargs() -> dict:
     and dies when the console closes).
     """
     if IS_WINDOWS:
-        return {"creationflags": windows_detach_flags()}
-    return {"start_new_session": True}
+        return {'creationflags': windows_detach_flags()}
+    return {'start_new_session': True}
 
-
-# -----------------------------------------------------------------------------
-# Non-interactive git environment (credential-prompt hang guard)
-# -----------------------------------------------------------------------------
-
-
-def noninteractive_git_env(
-    base: "Mapping[str, str] | None" = None,
-) -> dict[str, str]:
+def noninteractive_git_env(base: 'Mapping[str, str] | None'=None) -> dict[str, str]:
     """Environment for *internal* git invocations that must never prompt.
 
-    Hermes shells out to git from many non-interactive contexts — MCP catalog
+    Duck Agent shells out to git from many non-interactive contexts — MCP catalog
     installs, plugin install/update, profile distribution staging, worktree
     base fetches, desktop review-pane fetch/push. When the remote is private,
     misconfigured, or requires auth, git's default behavior is to prompt on
@@ -339,17 +263,11 @@ def noninteractive_git_env(
     legitimate.
     """
     env = dict(base if base is not None else os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "Never"
+    env['GIT_TERMINAL_PROMPT'] = '0'
+    env['GCM_INTERACTIVE'] = 'Never'
     return env
 
-
-# -----------------------------------------------------------------------------
-# Bounded, fail-open git probing (Windows post-kill deadlock guard)
-# -----------------------------------------------------------------------------
-
-
-def _kill_git_process_tree(proc: "subprocess.Popen") -> None:
+def _kill_git_process_tree(proc: 'subprocess.Popen') -> None:
     """Best-effort terminate *proc* and its descendants on both platforms.
 
     ``proc.kill()`` alone only terminates the direct child. On Windows a
@@ -374,14 +292,11 @@ def _kill_git_process_tree(proc: "subprocess.Popen") -> None:
     own timeout cleanup has no reader threads to join.
     """
     if not IS_WINDOWS:
-        # Group-kill first: verify the child actually leads its own process
-        # group before signalling it, so we never blast a shared group.
         try:
             import signal as _signal
-
             pgid = os.getpgid(proc.pid)
             if pgid == proc.pid:
-                os.killpg(pgid, _signal.SIGKILL)  # windows-footgun: ok — inside `if not IS_WINDOWS` gate
+                os.killpg(pgid, _signal.SIGKILL)
         except Exception:
             pass
     try:
@@ -390,18 +305,9 @@ def _kill_git_process_tree(proc: "subprocess.Popen") -> None:
         pass
     if IS_WINDOWS:
         try:
-            subprocess.run(
-                ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                timeout=2,
-                check=False,
-                creationflags=windows_hide_flags(),
-            )
+            subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=2, check=False, creationflags=windows_hide_flags())
         except Exception:
             pass
-
 
 def bounded_git_probe(argv: Sequence[str], *, timeout: float) -> str:
     """Run a short, throwaway ``git`` probe and return stripped stdout, or ``""``
@@ -435,30 +341,18 @@ def bounded_git_probe(argv: Sequence[str], *, timeout: float) -> str:
     openai/codex#36793). ``process_group`` only changes which group the child
     belongs to; it does not detach the terminal or alter the fast path.
     """
-    _popen_kwargs: dict = {"creationflags": windows_hide_flags()} if IS_WINDOWS else {"process_group": 0}
+    _popen_kwargs: dict = {'creationflags': windows_hide_flags()} if IS_WINDOWS else {'process_group': 0}
     try:
-        proc = subprocess.Popen(
-            list(argv),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            **_popen_kwargs,
-        )
+        proc = subprocess.Popen(list(argv), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, encoding='utf-8', errors='replace', **_popen_kwargs)
     except Exception:
-        return ""
+        return ''
     try:
         stdout, _ = proc.communicate(timeout=timeout)
     except Exception:
-        # Timeout OR any other communicate() failure (torn-down pipe, decode
-        # error): terminate the child + descendants and drain bounded. Leaving
-        # it running would leak the same suspended-descendant class this guards.
         _kill_git_process_tree(proc)
         try:
             proc.communicate(timeout=1)
         except Exception:
             pass
-        return ""
-    return stdout.strip() if proc.returncode == 0 else ""
+        return ''
+    return stdout.strip() if proc.returncode == 0 else ''
