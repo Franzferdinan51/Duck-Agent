@@ -12,6 +12,17 @@ name: Docker / shell lint
 
 on:
   workflow_call:
+    inputs:
+      hadolint_available:
+        description: Whether Dockerfile and Hadolint config exist.
+        required: false
+        type: boolean
+        default: true
+      docker_scripts_available:
+        description: Whether docker/ scripts exist.
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -23,6 +34,7 @@ concurrency:
 jobs:
   hadolint:
     name: Lint Dockerfile (hadolint)
+    if: inputs.hadolint_available
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -38,6 +50,7 @@ jobs:
 
   shellcheck:
     name: Lint docker/ shell scripts (shellcheck)
+    if: inputs.docker_scripts_available
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
