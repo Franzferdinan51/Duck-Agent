@@ -16,8 +16,8 @@ const BACKENDS = [
   },
   {
     id: 'hermes-compatible',
-    name: 'Hermes-Compatible',
-    description: 'Hermes Agent compatibility mode',
+    name: 'Duck-Agent-Compatible',
+    description: 'Duck-Agent compatibility mode',
     icon: Bot
   },
   {
