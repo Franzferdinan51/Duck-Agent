@@ -53,6 +53,11 @@ jobs:
       mcp_catalog: ${{ steps.classify.outputs.mcp_catalog }}
       ci_review: ${{ steps.classify.outputs.ci_review }}
       ci_review_files: ${{ steps.classify.outputs.ci_review_files }}
+      root_npm_available: ${{ steps.classify.outputs.root_npm_available }}
+      site_available: ${{ steps.classify.outputs.site_available }}
+      dockerfile_available: ${{ steps.classify.outputs.dockerfile_available }}
+      hadolint_available: ${{ steps.classify.outputs.hadolint_available }}
+      docker_scripts_available: ${{ steps.classify.outputs.docker_scripts_available }}
       event_name: ${{ github.event_name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -85,7 +90,7 @@ jobs:
   js-tests:
     name: JS & TS checks
     needs: detect
-    if: needs.detect.outputs.frontend == 'true'
+    if: needs.detect.outputs.frontend == 'true' && (needs.detect.outputs.event_name != 'pull_request' || needs.detect.outputs.root_npm_available == 'true')
     uses: ./.github/workflows/js-tests.yml
 
   installer-tests:
@@ -116,7 +121,7 @@ jobs:
   docs-site:
     name: Docs Site
     needs: detect
-    if: needs.detect.outputs.site == 'true'
+    if: needs.detect.outputs.site == 'true' && needs.detect.outputs.site_available == 'true'
     uses: ./.github/workflows/docs-site-checks.yml
 
   history-check:
@@ -150,8 +155,11 @@ jobs:
   docker-lint:
     name: Lint Docker scripts
     needs: detect
-    if: needs.detect.outputs.docker_meta == 'true'
+    if: needs.detect.outputs.docker_meta == 'true' && (needs.detect.outputs.hadolint_available == 'true' || needs.detect.outputs.docker_scripts_available == 'true')
     uses: ./.github/workflows/docker-lint.yml
+    with:
+      hadolint_available: ${{ needs.detect.outputs.hadolint_available == 'true' }}
+      docker_scripts_available: ${{ needs.detect.outputs.docker_scripts_available == 'true' }}
 
   docker:
     name: Build&Test Docker image
@@ -161,7 +169,7 @@ jobs:
     # remain build/test-only and secret-free. Gated on python_prod (not
     # python): the image copies installed code, never tests/ — tests-only
     # PRs skip the build.
-    if: needs.detect.outputs.event_name == 'pull_request' && (needs.detect.outputs.python_prod == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.docker_meta == 'true')
+    if: needs.detect.outputs.event_name == 'pull_request' && needs.detect.outputs.dockerfile_available == 'true' && (needs.detect.outputs.python_prod == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.docker_meta == 'true')
     uses: ./.github/workflows/docker.yml
 
   supply-chain:

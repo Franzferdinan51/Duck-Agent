@@ -48,6 +48,21 @@ outputs:
   ci_review_files:
     description: JSON list of CI-sensitive files changed by the pull request.
     value: ${{ steps.classify.outputs.ci_review_files }}
+  root_npm_available:
+    description: Root npm manifest and lockfile are available for JS checks.
+    value: ${{ steps.classify.outputs.root_npm_available }}
+  site_available:
+    description: Website manifest and lockfile are available for Docs Site checks.
+    value: ${{ steps.classify.outputs.site_available }}
+  dockerfile_available:
+    description: Dockerfile is available for Docker image workflows.
+    value: ${{ steps.classify.outputs.dockerfile_available }}
+  hadolint_available:
+    description: Dockerfile and Hadolint config are available for Docker lint.
+    value: ${{ steps.classify.outputs.hadolint_available }}
+  docker_scripts_available:
+    description: docker/ scripts are available for ShellCheck.
+    value: ${{ steps.classify.outputs.docker_scripts_available }}
 
 runs:
   using: composite
@@ -109,3 +124,69 @@ runs:
         echo "Changed files:"
         printf '%s\n' "${CHANGED:-(none)}"
         printf '%s\n' "${CHANGED:-}" | python3 scripts/ci/classify_changes.py
+
+        # Availability is separate from change classification. For pull
+        # requests, compare both trees: if a required input existed on base but
+        # was deleted by the PR, keep the lane enabled so the deletion fails
+        # visibly instead of hiding the check. API uncertainty fails open.
+        root_npm_available=true
+        site_available=true
+        dockerfile_available=true
+        hadolint_available=true
+        docker_scripts_available=true
+
+        if [ "$EVENT_NAME" = "pull_request" ]; then
+          # Git-tree responses can be truncated. Any API error or truncation is
+          # uncertainty, so keep every availability lane enabled (fail open).
+          if ! BASE_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${BASE_SHA}?recursive=1")" || \
+             ! HEAD_TREE_JSON="$(gh api "repos/${REPO}/git/trees/${HEAD_SHA}?recursive=1")"; then
+            echo "::warning::tree availability lookup failed; keeping all availability lanes enabled"
+          elif [ "$(jq -r '.truncated // false' <<<"$BASE_TREE_JSON")" = "true" ] || \
+               [ "$(jq -r '.truncated // false' <<<"$HEAD_TREE_JSON")" = "true" ]; then
+            echo "::warning::tree availability response was truncated; keeping all availability lanes enabled"
+          else
+            BASE_TREE="$(jq -r '.tree[]?.path' <<<"$BASE_TREE_JSON")"
+            HEAD_TREE="$(jq -r '.tree[]?.path' <<<"$HEAD_TREE_JSON")"
+            has_path() {
+              printf '%s\n' "$1" | grep -Fxq -- "$2"
+            }
+            has_any_npm_lock() {
+              has_path "$1" package-lock.json || has_path "$1" npm-shrinkwrap.json
+            }
+            # A lane is unavailable only when its complete required input set
+            # is absent from both base and head. A deletion therefore remains
+            # enabled and fails in the lane rather than being hidden.
+            if ! { has_path "$BASE_TREE" package.json && has_any_npm_lock "$BASE_TREE"; } && \
+               ! { has_path "$HEAD_TREE" package.json && has_any_npm_lock "$HEAD_TREE"; }; then
+              root_npm_available=false
+            fi
+            if ! { has_path "$BASE_TREE" website/package.json && has_path "$BASE_TREE" website/package-lock.json; } && \
+               ! { has_path "$HEAD_TREE" website/package.json && has_path "$HEAD_TREE" website/package-lock.json; }; then
+              site_available=false
+            fi
+            if ! has_path "$BASE_TREE" Dockerfile && ! has_path "$HEAD_TREE" Dockerfile; then
+              dockerfile_available=false
+            fi
+            if ! { has_path "$BASE_TREE" Dockerfile && has_path "$BASE_TREE" .hadolint.yaml; } && \
+               ! { has_path "$HEAD_TREE" Dockerfile && has_path "$HEAD_TREE" .hadolint.yaml; }; then
+              hadolint_available=false
+            fi
+            if ! printf '%s\n' "$BASE_TREE" | grep -q '^docker/' && ! printf '%s\n' "$HEAD_TREE" | grep -q '^docker/'; then
+              docker_scripts_available=false
+            fi
+          fi
+        fi
+
+        echo "root_npm_available=${root_npm_available}" >> "$GITHUB_OUTPUT"
+        echo "site_available=${site_available}" >> "$GITHUB_OUTPUT"
+        echo "dockerfile_available=${dockerfile_available}" >> "$GITHUB_OUTPUT"
+        echo "hadolint_available=${hadolint_available}" >> "$GITHUB_OUTPUT"
+        echo "docker_scripts_available=${docker_scripts_available}" >> "$GITHUB_OUTPUT"
+        {
+          echo "### CI infrastructure availability"
+          echo "- Root npm workspace inputs: \`${root_npm_available}\`"
+          echo "- Website inputs: \`${site_available}\`"
+          echo "- Dockerfile: \`${dockerfile_available}\`"
+          echo "- Hadolint inputs: \`${hadolint_available}\`"
+          echo "- Docker scripts: \`${docker_scripts_available}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
