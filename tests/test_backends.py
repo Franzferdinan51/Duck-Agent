@@ -27,7 +27,7 @@ class TestBackendType(unittest.TestCase):
     def test_backend_values(self):
         """Test that all expected backend values exist."""
         self.assertEqual(BackendType.GROK_BUILD.value, "grok-build")
-        self.assertEqual(BackendType.HERMES_COMPATIBLE.value, "hermes-compatible")
+        self.assertEqual(BackendType.HERMES_COMPATIBLE.value, "duck-agent-compatible")
         self.assertEqual(BackendType.PRIME_AGENT.value, "prime-agent")
 
     def test_backend_count(self):
@@ -56,7 +56,7 @@ class TestGetBackend(unittest.TestCase):
 
     def test_hermes_compatible_backend(self):
         """Test setting Hermes-compatible backend."""
-        os.environ["DUCK_AGENT_BACKEND"] = "hermes-compatible"
+        os.environ["DUCK_AGENT_BACKEND"] = "duck-agent-compatible"
         backend = get_backend()
         self.assertEqual(backend, BackendType.HERMES_COMPATIBLE)
 
@@ -79,7 +79,7 @@ class TestIsValidBackend(unittest.TestCase):
     def test_valid_backends(self):
         """Test valid backend names."""
         self.assertTrue(is_valid_backend("grok-build"))
-        self.assertTrue(is_valid_backend("hermes-compatible"))
+        self.assertTrue(is_valid_backend("duck-agent-compatible"))
         self.assertTrue(is_valid_backend("prime-agent"))
 
     def test_invalid_backends(self):
@@ -97,7 +97,7 @@ class TestGetBackendInfo(unittest.TestCase):
         """Test that all backends are returned."""
         info = get_backend_info()
         self.assertIn("grok-build", info)
-        self.assertIn("hermes-compatible", info)
+        self.assertIn("duck-agent-compatible", info)
         self.assertIn("prime-agent", info)
 
     def test_grok_build_recommended(self):
@@ -132,9 +132,9 @@ class TestInitializeBackend(unittest.TestCase):
 
     def test_initialize_hermes_compatible(self):
         """Test initializing Hermes-compatible backend."""
-        os.environ["DUCK_AGENT_BACKEND"] = "hermes-compatible"
+        os.environ["DUCK_AGENT_BACKEND"] = "duck-agent-compatible"
         result = initialize_backend()
-        self.assertIn("Hermes", result)
+        self.assertIn("Duck Agent", result)
 
     def test_initialize_prime_agent(self):
         """Test initializing Prime Agent backend."""
@@ -163,7 +163,7 @@ class TestPrintBackendInfo(unittest.TestCase):
 
     def test_print_shows_current_backend(self):
         """Test that print shows current backend."""
-        os.environ["DUCK_AGENT_BACKEND"] = "hermes-compatible"
+        os.environ["DUCK_AGENT_BACKEND"] = "duck-agent-compatible"
         with patch("builtins.print") as mock_print:
             print_backend_info()
             # Join all printed strings

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Semantic diff of npm ``package-lock.json`` files for PR comments.
 
 ``git diff`` on a lockfile is unreadable: npm reorders entries, rewrites
@@ -11,8 +10,7 @@ hash churn vanish; what's left is the actual dependency change.
 
 Usage (from a checkout that still has the base ref available):
 
-    python scripts/ci/lockfile_diff.py --base <ref> --head <ref> \
-        --output diff.md [--repo-root .]
+    python scripts/ci/lockfile_diff.py --base <ref> --head <ref>         --output diff.md [--repo-root .]
 
 Reads every ``package-lock.json`` tracked at either ref (top-level and
 nested — the repo has several), diffs each, and writes a Markdown fragment
@@ -21,14 +19,11 @@ changes" (the caller uses that to decide whether to include the section).
 The fragment is consumed by ``scripts/ci/assemble_review_comment.py``,
 which wraps it in a section with a header and action note.
 """
-
 from __future__ import annotations
-
 import argparse
 import json
 import subprocess
 import sys
-
 
 def parse_lockfile(text: str) -> dict[str, str]:
     """Reduce lockfile JSON to ``{install path: version}``.
@@ -41,14 +36,13 @@ def parse_lockfile(text: str) -> dict[str, str]:
     """
     data = json.loads(text)
     out: dict[str, str] = {}
-    for path, meta in data.get("packages", {}).items():
+    for path, meta in data.get('packages', {}).items():
         if not path:
-            continue  # root project entry, not a dependency
-        version = meta.get("version")
+            continue
+        version = meta.get('version')
         if version:
             out[path] = version
     return out
-
 
 def diff_locks(base: dict[str, str], head: dict[str, str]) -> dict[str, list]:
     """Set-diff two ``{path: version}`` maps.
@@ -57,23 +51,19 @@ def diff_locks(base: dict[str, str], head: dict[str, str]) -> dict[str, list]:
     ``updated`` as ``[(path, base_version, head_version)]``, each sorted
     by path.
     """
-    added = sorted((p, v) for p, v in head.items() if p not in base)
-    removed = sorted((p, v) for p, v in base.items() if p not in head)
-    updated = sorted(
-        (p, base[p], head[p]) for p in base.keys() & head.keys() if base[p] != head[p]
-    )
-    return {"added": added, "removed": removed, "updated": updated}
-
+    added = sorted(((p, v) for p, v in head.items() if p not in base))
+    removed = sorted(((p, v) for p, v in base.items() if p not in head))
+    updated = sorted(((p, base[p], head[p]) for p in base.keys() & head.keys() if base[p] != head[p]))
+    return {'added': added, 'removed': removed, 'updated': updated}
 
 def _display_name(path: str) -> str:
     """``node_modules/foo/node_modules/@scope/bar`` → ``@scope/bar (nested under foo)``."""
-    parts = path.split("node_modules/")
-    name = parts[-1].rstrip("/")
+    parts = path.split('node_modules/')
+    name = parts[-1].rstrip('/')
     if len(parts) > 2:
-        parents = " → ".join(p.rstrip("/") for p in parts[1:-1])
-        return f"{name} *(nested under {parents})*"
+        parents = ' → '.join((p.rstrip('/') for p in parts[1:-1]))
+        return f'{name} *(nested under {parents})*'
     return name
-
 
 def render_markdown(diffs: dict[str, dict[str, list]]) -> str:
     """Render per-lockfile diffs as a Markdown fragment.
@@ -89,54 +79,34 @@ def render_markdown(diffs: dict[str, dict[str, list]]) -> str:
     """
     sections = []
     for lockfile, d in sorted(diffs.items()):
-        added, removed, updated = d["added"], d["removed"], d["updated"]
+        added, removed, updated = (d['added'], d['removed'], d['updated'])
         n = len(added) + len(removed) + len(updated)
         if n == 0:
             continue
-        lines = [f"#### `{lockfile}`", ""]
-        lines.append("| Package | Before | After |")
-        lines.append("| --- | --- | --- |")
+        lines = [f'#### `{lockfile}`', '']
+        lines.append('| Package | Before | After |')
+        lines.append('| --- | --- | --- |')
         for path, old, new in updated:
-            lines.append(f"| {_display_name(path)} | `{old}` | `{new}` |")
+            lines.append(f'| {_display_name(path)} | `{old}` | `{new}` |')
         for path, version in added:
-            lines.append(f"| ➕ {_display_name(path)} | — | `{version}` |")
+            lines.append(f'| ➕ {_display_name(path)} | — | `{version}` |')
         for path, version in removed:
-            lines.append(f"| ➖ {_display_name(path)} | `{version}` | — |")
-        sections.append("\n".join(lines))
-
+            lines.append(f'| ➖ {_display_name(path)} | `{version}` | — |')
+        sections.append('\n'.join(lines))
     if not sections:
-        return ""
-
-    return "\n\n".join(sections) + "\n"
-
+        return ''
+    return '\n\n'.join(sections) + '\n'
 
 def _git_show(ref: str, path: str, repo_root: str) -> str | None:
     """Contents of ``path`` at ``ref``, or None if it doesn't exist there."""
-    proc = subprocess.run(
-        ["git", "show", f"{ref}:{path}"],
-        capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
-        cwd=repo_root,
-    )
+    proc = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=repo_root)
     return proc.stdout if proc.returncode == 0 else None
 
-
 def _tracked_lockfiles(ref: str, repo_root: str) -> set[str]:
-    proc = subprocess.run(
-        ["git", "ls-tree", "-r", "--name-only", ref],
-        capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
-        cwd=repo_root,
-        check=True,
-    )
-    return {
-        line
-        for line in proc.stdout.splitlines()
-        if line.split("/")[-1] == "package-lock.json"
-    }
+    proc = subprocess.run(['git', 'ls-tree', '-r', '--name-only', ref], capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=repo_root, check=True)
+    return {line for line in proc.stdout.splitlines() if line.split('/')[-1] == 'package-lock.json'}
 
-
-def diff_refs(base: str, head: str, repo_root: str = ".") -> dict[str, dict[str, list]]:
+def diff_refs(base: str, head: str, repo_root: str='.') -> dict[str, dict[str, list]]:
     """Diff every package-lock.json tracked at either ref."""
     lockfiles = _tracked_lockfiles(base, repo_root) | _tracked_lockfiles(head, repo_root)
     diffs = {}
@@ -148,27 +118,22 @@ def diff_refs(base: str, head: str, repo_root: str = ".") -> dict[str, dict[str,
         diffs[path] = diff_locks(base_map, head_map)
     return diffs
 
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base", required=True, help="base git ref (merge base)")
-    ap.add_argument("--head", required=True, help="head git ref")
-    ap.add_argument("--output", required=True, help="markdown output path")
-    ap.add_argument("--repo-root", default=".", help="repository root")
+    ap.add_argument('--base', required=True, help='base git ref (merge base)')
+    ap.add_argument('--head', required=True, help='head git ref')
+    ap.add_argument('--output', required=True, help='markdown output path')
+    ap.add_argument('--repo-root', default='.', help='repository root')
     args = ap.parse_args()
-
     diffs = diff_refs(args.base, args.head, args.repo_root)
     markdown = render_markdown(diffs)
-    with open(args.output, "w", encoding="utf-8") as fh:
+    with open(args.output, 'w', encoding='utf-8') as fh:
         fh.write(markdown)
-
     if markdown:
-        changed = sum(len(v) for d in diffs.values() for v in d.values())
-        print(f"{changed} package version change(s) — report written to {args.output}")
+        changed = sum((len(v) for d in diffs.values() for v in d.values()))
+        print(f'{changed} package version change(s) — report written to {args.output}')
     else:
-        print("No package version changes.")
+        print('No package version changes.')
     return 0
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

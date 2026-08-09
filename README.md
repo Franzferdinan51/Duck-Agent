@@ -1,6 +1,6 @@
 # Duck Agent
 
-Duck Agent is a desktop-first autonomous-agent project built on the Hermes desktop foundation, with **Grok Build as its primary agent harness**.
+Duck Agent is a desktop-first autonomous-agent project built on the Duck Agent desktop foundation, with **Grok Build as its primary agent harness**.
 
 The project is under active development. The long-term goal is an agent that can work toward a user goal through an iterative loop of reasoning, tool use, observation, recovery, and completion—not just return a single chat response.
 
@@ -10,13 +10,13 @@ The repository currently includes:
 
 - A `duck-agent` launcher and backend-selection layer.
 - A Grok Build backend as the primary path.
-- Hermes-compatible and Prime Agent compatibility/experimental paths.
+- Duck Agent-compatible and Prime Agent compatibility/experimental paths.
 - Backend managers for sessions, skills, workflows, and MCP metadata.
 - A Python dependency baseline (`pyproject.toml` + `uv.lock`) using `uv`.
 - Python and TypeScript backend test suites, plus an aggregate `run_all_tests.sh` runner.
 - Recovered CI helpers (parallel test slices, lint-diff, Windows foot-gun checks).
 - Windows installer scripts and their PowerShell tests.
-- A Hermes-derived Electron desktop application under `apps/desktop/`.
+- A Duck Agent-derived Electron desktop application under `apps/desktop/`.
 
 The complete autonomous runtime is still being built. Durable task state, resumable
 long-running work, approval policies, full desktop runtime integration, and production-ready
@@ -26,7 +26,7 @@ tool feedback remain active development areas.
 
 ```text
 ┌──────────────────────────────┐
-│ Hermes-derived desktop app  │
+│ Duck Agent-derived desktop app  │
 │ conversations, workspace,   │
 │ settings, terminal, status  │
 └──────────────┬───────────────┘
@@ -68,14 +68,14 @@ DUCK_AGENT_BACKEND=grok-build ./duck-agent
 Backend names currently exposed by the compatibility layer are:
 
 - `grok-build` — primary backend.
-- `hermes-compatible` — compatibility backend.
+- `duck-agent-compatible` — compatibility backend.
 - `prime-agent` — experimental backend.
 
 Provider configuration depends on the selected backend and is supplied through the environment or local configuration used by that backend. Do not commit credentials to the repository.
 
-### Hermes-style Duck-Agent CLI
+### Duck Agent-style Duck-Agent CLI
 
-Duck-Agent also provides a local-first command surface inspired by the Hermes Agent CLI and the governed workflow model of oh-my-hermes. It reports what is planned, running, or verified rather than implying that an executor's report is proof of completion.
+Duck-Agent also provides a local-first command surface inspired by the Duck Agent CLI and the governed workflow model of oh-my-duck-agent. It reports what is planned, running, or verified rather than implying that an executor's report is proof of completion.
 
 ```bash
 python3 -m duck_agent.cli --help
@@ -86,7 +86,7 @@ python3 -m duck_agent.cli workflows
 python3 -m duck_agent.cli capabilities
 ```
 
-Available workflows are `plan`, `research`, `code`, and `operate`. Duck-Agent's local state defaults to `~/.duck-agent`; it does not use or overwrite an existing Hermes `~/.hermes` home. `DUCK_AGENT_HOME` or `--home` can override the state location.
+Available workflows are `plan`, `research`, `code`, and `operate`. Duck-Agent's local state defaults to `~/.duck-agent`; it does not use or overwrite an existing Duck Agent `~/.duck-agent` home. `DUCK_AGENT_HOME` or `--home` can override the state location.
 
 ### Desktop application
 

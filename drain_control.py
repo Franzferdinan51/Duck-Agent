@@ -15,7 +15,7 @@ share one definition and can never disagree.
 
 Contract (presence-based, mirroring ``.restart_notify.json``):
 
-  * begin-drain  → write ``{HERMES_HOME}/.drain_request.json`` with
+  * begin-drain  → write ``{DUCK_AGENT_HOME}/.drain_request.json`` with
     ``{"action": "drain", "requested_at": <iso>, "principal": <str>,
     "epoch": <instantiation-epoch>, "suppress_notification": <bool>}``.
   * cancel-drain → remove the marker.
@@ -25,7 +25,7 @@ Contract (presence-based, mirroring ``.restart_notify.json``):
     marker from a *prior* instantiation) means "not draining" (revert to
     ``running`` if we had flipped it).
 
-Why the epoch (NS-570). ``HERMES_HOME`` is a **durable** store — on Hermes
+Why the epoch (NS-570). ``DUCK_AGENT_HOME`` is a **durable** store — on Duck Agent
 Cloud it is a persistent Fly volume (``/opt/data``). A begin-drain marker
 written there *survives a machine restart*. But the disruptive lifecycle
 actions a drain protects (auto-update / image migrate / env edit / profile
@@ -48,21 +48,16 @@ or an environment where the epoch cannot be computed (non-Linux, no ``/proc``),
 both degrade to the original presence-only behaviour — never fail-closed.
 """
 from __future__ import annotations
-
 import functools
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
-
 from hermes_constants import get_hermes_home
 from utils import atomic_json_write
-
 _log = logging.getLogger(__name__)
-
-_DRAIN_REQUEST_FILENAME = ".drain_request.json"
-
+_DRAIN_REQUEST_FILENAME = '.drain_request.json'
 
 @functools.lru_cache(maxsize=1)
 def current_instantiation_epoch() -> str:
@@ -86,7 +81,7 @@ def current_instantiation_epoch() -> str:
       | Fly microVM reboot (auto-upd.) | changes | changes    | NEW    | reject |
       | plain ``docker restart``       | same    | changes    | NEW    | reject |
       | s6 respawn of the gateway only | same    | same       | SAME   | honour |
-      | host ``hermes gateway restart``| same    | same(init) | SAME   | honour |
+      | host ``duck-agent gateway restart``| same    | same(init) | SAME   | honour |
 
     The last row is intentional: a host install has no durable-volume drain
     bug, and honouring a drain across a deliberate process restart is the
@@ -98,46 +93,28 @@ def current_instantiation_epoch() -> str:
     degrading to the released presence-only behaviour — never fail-closed.
     Memoised: the epoch is constant for the life of the process.
     """
-    boot_id = ""
+    boot_id = ''
     try:
-        boot_id = (
-            Path("/proc/sys/kernel/random/boot_id")
-            .read_text(encoding="utf-8")
-            .strip()
-        )
+        boot_id = Path('/proc/sys/kernel/random/boot_id').read_text(encoding='utf-8').strip()
     except OSError:
         pass
-
-    pid1_start = ""
+    pid1_start = ''
     try:
-        # /proc/1/stat: "<pid> (<comm>) <state> ... <starttime@field22> ...".
-        # comm can contain spaces and parens, so split on the LAST ')' and
-        # index into the whitespace-delimited tail. starttime is field 22
-        # (1-indexed); after the comm the tail starts at field 3, so it is the
-        # tail's index 19.
-        stat = Path("/proc/1/stat").read_text(encoding="utf-8")
-        tail = stat.rsplit(")", 1)[1].split()
+        stat = Path('/proc/1/stat').read_text(encoding='utf-8')
+        tail = stat.rsplit(')', 1)[1].split()
         pid1_start = tail[19]
     except (OSError, IndexError):
         pass
+    if not boot_id and (not pid1_start):
+        return ''
+    return f'{boot_id}:{pid1_start}'
 
-    if not boot_id and not pid1_start:
-        return ""
-    return f"{boot_id}:{pid1_start}"
-
-
-def drain_request_path(home: Optional[Path] = None) -> Path:
-    """Absolute path to the drain-request marker, respecting HERMES_HOME."""
+def drain_request_path(home: Optional[Path]=None) -> Path:
+    """Absolute path to the drain-request marker, respecting DUCK_AGENT_HOME."""
     base = home if home is not None else get_hermes_home()
     return Path(base) / _DRAIN_REQUEST_FILENAME
 
-
-def write_drain_request(
-    *,
-    principal: str = "drain-control",
-    suppress_notification: bool = False,
-    home: Optional[Path] = None,
-) -> dict[str, Any]:
+def write_drain_request(*, principal: str='drain-control', suppress_notification: bool=False, home: Optional[Path]=None) -> dict[str, Any]:
     """Write the begin-drain marker. Returns the payload written.
 
     Atomic write so the gateway watcher never reads a half-written file.
@@ -145,7 +122,7 @@ def write_drain_request(
     ``requested_at`` (harmless — the watcher keys off presence, not content).
 
     Stamps the marker with :func:`current_instantiation_epoch` so a marker that
-    later survives a machine restart on the durable HERMES_HOME volume can be
+    later survives a machine restart on the durable DUCK_AGENT_HOME volume can be
     recognised as stale and ignored (NS-570).
 
     ``suppress_notification`` is a generic "be quiet on the shutdown that ends
@@ -159,18 +136,11 @@ def write_drain_request(
     of which drain causes set the flag lives entirely in the caller (NAS). The
     field defaults False so legacy/operator drains behave exactly as before.
     """
-    payload = {
-        "action": "drain",
-        "requested_at": datetime.now(timezone.utc).isoformat(),
-        "principal": principal,
-        "epoch": current_instantiation_epoch(),
-        "suppress_notification": bool(suppress_notification),
-    }
+    payload = {'action': 'drain', 'requested_at': datetime.now(timezone.utc).isoformat(), 'principal': principal, 'epoch': current_instantiation_epoch(), 'suppress_notification': bool(suppress_notification)}
     atomic_json_write(drain_request_path(home), payload)
     return payload
 
-
-def clear_drain_request(*, home: Optional[Path] = None) -> bool:
+def clear_drain_request(*, home: Optional[Path]=None) -> bool:
     """Remove the drain marker (cancel-drain). Returns True if one existed.
 
     Best-effort: a missing file is not an error (cancel is idempotent).
@@ -182,9 +152,8 @@ def clear_drain_request(*, home: Optional[Path] = None) -> bool:
     except FileNotFoundError:
         return False
     except OSError as e:
-        _log.warning("drain-control: failed to remove %s: %s", path, e)
+        _log.warning('drain-control: failed to remove %s: %s', path, e)
         return False
-
 
 def _marker_epoch_is_stale(body: dict[str, Any]) -> bool:
     """True iff ``body``'s epoch is a *definite* mismatch with this process.
@@ -201,18 +170,17 @@ def _marker_epoch_is_stale(body: dict[str, Any]) -> bool:
     current = current_instantiation_epoch()
     if not current:
         return False
-    marker_epoch = body.get("epoch")
+    marker_epoch = body.get('epoch')
     if not marker_epoch:
         return False
     return marker_epoch != current
 
-
-def drain_requested(*, home: Optional[Path] = None) -> bool:
+def drain_requested(*, home: Optional[Path]=None) -> bool:
     """True iff a begin-drain marker for THIS instantiation is present.
 
     A marker whose ``epoch`` does not match the current instantiation epoch is
-    treated as absent: it survived a container/VM restart (HERMES_HOME is a
-    durable Fly volume on Hermes Cloud) and the lifecycle action that triggered
+    treated as absent: it survived a container/VM restart (DUCK_AGENT_HOME is a
+    durable Fly volume on Duck Agent Cloud) and the lifecycle action that triggered
     the drain has already completed — honouring it would wedge the
     freshly-restarted gateway in ``draining`` (NS-570). The staleness check is
     lenient (see :func:`_marker_epoch_is_stale`): a legacy/corrupt marker with
@@ -225,13 +193,12 @@ def drain_requested(*, home: Optional[Path] = None) -> bool:
         return False
     return True
 
-
-def drain_notification_suppressed(*, home: Optional[Path] = None) -> bool:
+def drain_notification_suppressed(*, home: Optional[Path]=None) -> bool:
     """True iff an ACTIVE drain marker asks to suppress the shutdown broadcast.
 
     "Active" means exactly what :func:`drain_requested` means — a marker present
     AND stamped with the current instantiation epoch. A stale (other-epoch)
-    marker that survived a machine restart on the durable HERMES_HOME volume is
+    marker that survived a machine restart on the durable DUCK_AGENT_HOME volume is
     ignored here just as it is for drain state (NS-570): we must never let an
     orphaned marker's flag silence a *fresh* gateway's legitimate shutdown
     broadcast.
@@ -248,10 +215,9 @@ def drain_notification_suppressed(*, home: Optional[Path] = None) -> bool:
         return False
     if _marker_epoch_is_stale(body):
         return False
-    return bool(body.get("suppress_notification"))
+    return bool(body.get('suppress_notification'))
 
-
-def read_drain_request(*, home: Optional[Path] = None) -> Optional[dict[str, Any]]:
+def read_drain_request(*, home: Optional[Path]=None) -> Optional[dict[str, Any]]:
     """Return the marker payload, or ``None`` if absent.
 
     A present-but-unparseable marker returns ``{}`` (truthy-presence preserved
@@ -260,11 +226,11 @@ def read_drain_request(*, home: Optional[Path] = None) -> Optional[dict[str, Any
     """
     path = drain_request_path(home)
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = path.read_text(encoding='utf-8')
     except FileNotFoundError:
         return None
     except OSError as e:
-        _log.warning("drain-control: failed to read %s: %s", path, e)
+        _log.warning('drain-control: failed to read %s: %s', path, e)
         return None
     try:
         data = json.loads(raw)

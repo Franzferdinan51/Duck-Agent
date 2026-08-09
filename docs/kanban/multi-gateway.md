@@ -1,6 +1,6 @@
 # Multi-gateway deployment
 
-Hermes supports multiple gateway processes running concurrently — one per profile
+Duck Agent supports multiple gateway processes running concurrently — one per profile
 (default, writer, admin, coder, researcher). Each gateway opens its own connection
 to platform APIs and delivers messages for its profile's subscribers.
 
@@ -19,7 +19,7 @@ processes.
 ## Configuration
 
 On the dispatch-owning gateway (typically the `default` profile), no change is
-needed. On every other profile gateway, add to `~/.hermes/config.yaml`:
+needed. On every other profile gateway, add to `~/.duck-agent/config.yaml`:
 
 ```yaml
 kanban:

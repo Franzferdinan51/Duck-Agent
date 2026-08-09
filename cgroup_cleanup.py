@@ -11,32 +11,28 @@ of writing ``1`` to ``cgroup.kill``: the original failure mode in #37454
 was the kernel returning ``EINVAL`` on the cgroup-wide kill, while per-PID
 signal delivery uses a separate code path that still works.
 """
-
 from __future__ import annotations
-
 import os
 import re
 import signal
 import sys
 from pathlib import Path
 
-
 def _own_cgroup_path() -> str | None:
     """Return the cgroup v2 path for the calling process, or None."""
     try:
-        text = Path("/proc/self/cgroup").read_text(encoding="utf-8")
+        text = Path('/proc/self/cgroup').read_text(encoding='utf-8')
     except OSError:
         return None
-    match = re.search(r"^0::(.+)$", text, re.MULTILINE)
+    match = re.search('^0::(.+)$', text, re.MULTILINE)
     if not match:
         return None
     return match.group(1).strip()
 
-
 def _read_cgroup_pids(cgroup_path: str) -> list[int]:
-    procs_file = Path(f"/sys/fs/cgroup{cgroup_path}/cgroup.procs")
+    procs_file = Path(f'/sys/fs/cgroup{cgroup_path}/cgroup.procs')
     try:
-        raw = procs_file.read_text(encoding="utf-8")
+        raw = procs_file.read_text(encoding='utf-8')
     except OSError:
         return []
     pids: list[int] = []
@@ -50,8 +46,7 @@ def _read_cgroup_pids(cgroup_path: str) -> list[int]:
             continue
     return pids
 
-
-def reap_cgroup(cgroup_path: str | None = None) -> int:
+def reap_cgroup(cgroup_path: str | None=None) -> int:
     """SIGKILL every PID in the cgroup other than the caller. Returns the count killed."""
     if cgroup_path is None:
         cgroup_path = _own_cgroup_path()
@@ -63,7 +58,7 @@ def reap_cgroup(cgroup_path: str | None = None) -> int:
         if pid == own:
             continue
         try:
-            os.kill(pid, signal.SIGKILL)  # windows-footgun: ok — Linux-only (reads /proc, /sys/fs/cgroup; runs from a systemd unit)
+            os.kill(pid, signal.SIGKILL)
             killed += 1
         except ProcessLookupError:
             continue
@@ -71,11 +66,8 @@ def reap_cgroup(cgroup_path: str | None = None) -> int:
             continue
     return killed
 
-
 def main() -> int:
     reap_cgroup()
     return 0
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

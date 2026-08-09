@@ -6,7 +6,7 @@ This file is guidance for coding agents and contributors working in this reposit
 
 Duck Agent is a **real autonomous desktop agent**, not a simple chat wrapper.
 
-The desktop application is derived from the Hermes desktop app. Preserve useful existing Hermes functionality while replacing or adapting the runtime underneath it.
+The desktop application is derived from the Duck Agent desktop app. Preserve useful existing Duck Agent functionality while replacing or adapting the runtime underneath it.
 
 The **primary harness is Grok Build**.
 
@@ -14,7 +14,7 @@ Do not accidentally redesign the project as:
 
 - a generic multi-provider chat client
 - a thin REST chat-completions wrapper
-- a Hermes rebrand with no autonomous runtime
+- a Duck Agent rebrand with no autonomous runtime
 - a UI-only project
 
 ## Architecture invariant
@@ -52,15 +52,15 @@ The Grok Build implementation must move toward:
 
 Do not leave placeholder echo responses in a code path represented as production-ready.
 
-## Hermes desktop foundation
+## Duck Agent desktop foundation
 
-The desktop app was taken from Hermes and is being built on top of.
+The desktop app was taken from Duck Agent and is being built on top of.
 
 When modifying `apps/desktop`:
 
 1. Preserve working features unless there is a concrete reason to remove them.
 2. Prefer adapters and stable interfaces over rewrites.
-3. Replace Hermes-specific backend assumptions with Duck Agent runtime interfaces.
+3. Replace Duck Agent-specific backend assumptions with Duck Agent runtime interfaces.
 4. Keep terminal, workspace, session, settings, tool and related functionality intact where possible.
 5. Make agent execution observable in the UI.
 
@@ -108,4 +108,4 @@ Module-import tests alone are not enough.
 
 ## Compatibility backends
 
-`hermes-compatible` and `prime-agent` may remain as compatibility/experimental paths, but they must not blur the primary product direction. Shared interfaces are good; designing the whole product around the lowest common denominator is not.
+`duck-agent-compatible` and `prime-agent` may remain as compatibility/experimental paths, but they must not blur the primary product direction. Shared interfaces are good; designing the whole product around the lowest common denominator is not.

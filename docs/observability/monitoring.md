@@ -1,7 +1,7 @@
 # Gateway Monitoring
 
 Service health monitoring plus structured operational diagnostics for the
-Hermes gateway daemon, exported over OTLP/HTTP to an operator-configured
+Duck Agent gateway daemon, exported over OTLP/HTTP to an operator-configured
 endpoint (OpenTelemetry Collector, DataDog, or any OTLP receiver).
 
 This plane is content-free by construction. It exports gateway and cron
@@ -10,13 +10,13 @@ diagnostics. It never exports prompts, messages, tool arguments or results,
 job names, destinations, schedules, raw errors, session history, usage
 analytics, audit logs, or detailed execution traces. Run/model/tool trajectory
 capture is a separate plane served by the NeMo Relay integration
-(`plugins/observability/nemo_relay/`) and its Hermes-owned subscribers.
+(`plugins/observability/nemo_relay/`) and its Duck Agent-owned subscribers.
 
 ## What gets exported
 
 | Signal | OTLP route | Content |
 | --- | --- | --- |
-| Gateway gauges | `/v1/metrics` | `hermes.gateway.up/state/busy/drainable/active_agents/background_work/background_delegations/restart_requested`, `hermes.platform.up/degraded` with bounded `error_code` attributes |
+| Gateway gauges | `/v1/metrics` | `duck-agent.gateway.up/state/busy/drainable/active_agents/background_work/background_delegations/restart_requested`, `duck-agent.platform.up/degraded` with bounded `error_code` attributes |
 | Health/lifecycle events | `/v1/traces` | `gateway.lifecycle` state transitions (`starting -> running -> draining -> stopped`, `startup_failed`, exit), `gateway.health_snapshot`, platform state changes |
 | Diagnostics | `/v1/logs` | Warning/error gateway events with a constant body and bounded subsystem, severity, error class, and error code attributes; rendered log messages are never exported |
 | Cron scheduler gauges | `/v1/metrics` | Ticker heartbeat and last-success age (omitted when unavailable), a monotonic catch-up-occurrence count from the scheduler's stale-window branch, enabled/running job counts, and overdue count derived from persisted `next_run_at` plus the scheduler's existing grace rule |
@@ -26,8 +26,8 @@ Signals carry `service.name`, version, supervision mode, and a stable one-way
 hash of the install id so an operator can distinguish instances without
 exporting account/profile identity or the raw install identifier.
 
-`hermes.gateway.active_agents`, `hermes.gateway.background_work`, and
-`hermes.gateway.background_delegations` are complementary. `active_agents`
+`duck-agent.gateway.active_agents`, `duck-agent.gateway.background_work`, and
+`duck-agent.gateway.background_delegations` are complementary. `active_agents`
 counts foreground message turns plus in-flight cron jobs plus API runs — the
 work the gateway drains on shutdown. `background_work` counts detached work that
 `active_agents` never includes: backgrounded `delegate_task` subagents,
@@ -57,17 +57,17 @@ monitoring:
 Check the posture any time:
 
 ```bash
-hermes monitoring status
+duck-agent monitoring status
 ```
 
-The OpenTelemetry SDK is an optional extra (`pip install 'hermes-agent[otlp]'`),
+The OpenTelemetry SDK is an optional extra (`pip install 'duck-agent[otlp]'`),
 lazy-installed on first use. When the SDK is missing or the endpoint is down,
 the gateway runs unaffected: metric collection and ordinary event export stay
 off the hot path, while terminal cron events make one bounded fail-open flush
 attempt of up to one second so the final state is less likely to be lost.
 
 Works identically under systemd/launchd/s6 supervision, containers, tmux, or
-a plain `hermes gateway run`: the exporter lives in the gateway process, so
+a plain `duck-agent gateway run`: the exporter lives in the gateway process, so
 no sidecar, agent, or collector is required on the host.
 
 ## Collecting into DataDog
@@ -92,7 +92,7 @@ service:
 ```
 
 Point `monitoring.export.otlp.endpoint` at the collector. Alerts belong on
-`hermes.gateway.up`, `hermes.platform.up`, and `hermes.platform.degraded`.
+`duck-agent.gateway.up`, `duck-agent.platform.up`, and `duck-agent.platform.degraded`.
 
 ## Generic fleet queries and alerts
 
@@ -129,13 +129,13 @@ hermes_cron_jobs_overdue > 0
 increase(hermes_cron_scheduler_catch_up_occurrences[15m]) > 0
 ```
 
-Cron execution lifecycle records arrive as `hermes.cron_execution` spans.
+Cron execution lifecycle records arrive as `duck-agent.cron_execution` spans.
 Alert or derive events from bounded attributes such as:
 
 ```text
-hermes.status = failed|unknown
-hermes.delivery_outcome = failed|not_configured
-hermes.error_class = auth_failed|rate_limited|timeout|network_error|
+duck-agent.status = failed|unknown
+duck-agent.delivery_outcome = failed|not_configured
+duck-agent.error_class = auth_failed|rate_limited|timeout|network_error|
                      dispatch_failed|interrupted|empty_response|
                      invalid_config|unknown
 ```
@@ -146,7 +146,7 @@ Recommended operator views:
    state;
 2. scheduler heartbeat, last-success age, running count, overdue count, and
    catch-up increase;
-3. a cron lifecycle feed keyed only by opaque `hermes.job_key`;
+3. a cron lifecycle feed keyed only by opaque `duck-agent.job_key`;
 4. separate alerts for box absence, local bridge down, scheduler stale, cron
    failed/unknown, delivery failure, and overdue/catch-up activity.
 
@@ -171,7 +171,7 @@ collector and backend:
 5. **Killed gateway:** terminate one canary, verify missing-series detection,
    restart it, and confirm the same opaque instance identity returns.
 
-Hermes Agent-owned Relay transport health remains in scope. A separate gateway
+Duck Agent-owned Relay transport health remains in scope. A separate gateway
 or connector service remains authoritative for any shared connected-platform
 state that it owns and should export that state through its own telemetry path.
 
@@ -261,7 +261,7 @@ classifier, never one without the other:
 Rules: keep the vocabulary SMALL and operationally meaningful (an error class
 should map to an operator action, not to an exception subclass); a new bucket
 must match on a stable keyword, not on message text that could vary; update the
-`hermes.error_class = ...` list in this file's alert section and the enum's unit
+`duck-agent.error_class = ...` list in this file's alert section and the enum's unit
 test so the contract is asserted, not frozen as a count.
 
 ### Adding a content-free attribute to an existing event/span
@@ -280,7 +280,7 @@ emitter attribute allowlist, and any collector allowlist each drop unlisted
 values with no error:
 
 ```bash
-hermes monitoring status                 # posture
+duck-agent monitoring status                 # posture
 python scripts/observability/gateway_health_export_probe.py \
   --endpoint http://127.0.0.1:4318/v1/traces \
   --log /tmp/cap.jsonl --wait 8          # drive the real exporter
@@ -292,9 +292,9 @@ allowlist entries and re-verify against the backend, not just the local capture.
 
 ## Boundaries and roadmap
 
-The `hermes monitoring` CLI intentionally exposes `status` only. This first
-release covers only Hermes Agent-owned service-health and operational-diagnostic
-signals, including Hermes Agent-owned Relay transport health. Team Gateway's
+The `duck-agent monitoring` CLI intentionally exposes `status` only. This first
+release covers only Duck Agent-owned service-health and operational-diagnostic
+signals, including Duck Agent-owned Relay transport health. Team Gateway's
 authoritative shared connector/platform state is explicitly out of scope, as
 are product analytics, audit/quality reporting, and detailed execution traces.
 Shared client usage metrics and enterprise trace telemetry are being designed on

@@ -1,4 +1,4 @@
-"""Windows UTF-8 bootstrap for Hermes entry points.
+"""Windows UTF-8 bootstrap for Duck Agent entry points.
 
 Python on Windows has two long-standing text-encoding footguns:
 
@@ -13,8 +13,8 @@ Python on Windows has two long-standing text-encoding footguns:
    cp1252 defaults and hits the same UnicodeEncodeError.
 
 This module fixes both on Windows *only* — POSIX is untouched.  It
-should be imported at the very top of every Hermes entry point
-(``hermes``, ``hermes-agent``, ``hermes-acp``, ``python -m gateway.run``,
+should be imported at the very top of every Duck Agent entry point
+(``duck-agent``, ``duck-agent``, ``duck-agent-acp``, ``python -m gateway.run``,
 ``batch_runner.py``, ``cron/scheduler.py``) before any other imports
 that might do file I/O or print to stdout.
 
@@ -46,15 +46,11 @@ What this module does on POSIX:
 Idempotent: safe to call multiple times.  ``_bootstrap_once`` guards
 against double-reconfigure.
 """
-
 from __future__ import annotations
-
 import os
 import sys
-
-_IS_WINDOWS = sys.platform == "win32"
+_IS_WINDOWS = sys.platform == 'win32'
 _bootstrap_applied = False
-
 
 def apply_windows_utf8_bootstrap() -> bool:
     """Apply the Windows UTF-8 bootstrap if we're on Windows.
@@ -67,60 +63,33 @@ def apply_windows_utf8_bootstrap() -> bool:
     Idempotent: subsequent calls after the first are a no-op.
     """
     global _bootstrap_applied
-
     if not _IS_WINDOWS:
         return False
     if _bootstrap_applied:
         return False
-
-    # 1. Child processes inherit these and run in UTF-8 mode.
-    #    We use setdefault() rather than overwriting so the user can
-    #    explicitly opt out by setting PYTHONUTF8=0 in their environment
-    #    (or PYTHONIOENCODING=something-else) if they really want to.
-    os.environ.setdefault("PYTHONUTF8", "1")
-    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-
-    # 2. Reconfigure the current process's stdio to UTF-8.  Needed
-    #    because os.environ changes don't retroactively rebind sys.stdout
-    #    — those were bound at interpreter startup based on the console
-    #    code page.  ``reconfigure`` is a TextIOWrapper method since 3.7.
-    #
-    #    errors="replace" means that if we ever *read* something from
-    #    stdin that isn't UTF-8 (unlikely but possible with piped input
-    #    from legacy tools), we'll get U+FFFD replacement chars rather
-    #    than a crash.  Output is pure UTF-8.
-    for stream_name in ("stdout", "stderr"):
+    os.environ.setdefault('PYTHONUTF8', '1')
+    os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+    for stream_name in ('stdout', 'stderr'):
         stream = getattr(sys, stream_name, None)
         if stream is None:
             continue
-        reconfigure = getattr(stream, "reconfigure", None)
+        reconfigure = getattr(stream, 'reconfigure', None)
         if reconfigure is None:
-            # Not a TextIOWrapper (could be redirected to a BytesIO in
-            # tests, or a non-standard stream in some embedded cases).
-            # Skip silently — the env-var fix is still in effect for
-            # child processes, which is the bigger win.
             continue
         try:
-            reconfigure(encoding="utf-8", errors="replace")
+            reconfigure(encoding='utf-8', errors='replace')
         except (OSError, ValueError):
-            # Already closed, or someone replaced it with something
-            # non-reconfigurable.  Non-fatal.
             pass
-
-    # stdin is reconfigured separately with errors="replace" too — input
-    # from a legacy pipe shouldn't crash the process.
-    stdin = getattr(sys, "stdin", None)
+    stdin = getattr(sys, 'stdin', None)
     if stdin is not None:
-        reconfigure = getattr(stdin, "reconfigure", None)
+        reconfigure = getattr(stdin, 'reconfigure', None)
         if reconfigure is not None:
             try:
-                reconfigure(encoding="utf-8", errors="replace")
+                reconfigure(encoding='utf-8', errors='replace')
             except (OSError, ValueError):
                 pass
-
     _bootstrap_applied = True
     return True
-
 
 def suppress_platform_ver_console() -> None:
     """Stub ``platform._syscmd_ver`` on Windows — decode-crash + flash guard.
@@ -153,22 +122,18 @@ def suppress_platform_ver_console() -> None:
         return
     try:
         import platform
+        if hasattr(platform, '_syscmd_ver'):
 
-        if hasattr(platform, "_syscmd_ver"):
-            def _quiet_syscmd_ver(system="", release="", version="",
-                                  supported_platforms=("win32", "win16", "dos")):
-                return system, release, version
-
+            def _quiet_syscmd_ver(system='', release='', version='', supported_platforms=('win32', 'win16', 'dos')):
+                return (system, release, version)
             platform._syscmd_ver = _quiet_syscmd_ver
     except Exception:
-        # Hardening only — never let it break an entry point.
         pass
 
+def harden_import_path(src_root: str | None=None) -> None:
+    """Stop a package in the current directory from shadowing Duck Agent modules.
 
-def harden_import_path(src_root: str | None = None) -> None:
-    """Stop a package in the current directory from shadowing Hermes modules.
-
-    Hermes ships top-level modules with common names (``utils``, ``proxy``,
+    Duck Agent ships top-level modules with common names (``utils``, ``proxy``,
     ``ui``).  Python always seeds ``sys.path`` with the current directory, so
     launching an entry point from a project that has its own ``utils/`` package
     makes ``from utils import ...`` resolve to the *user's* package and crash
@@ -182,7 +147,7 @@ def harden_import_path(src_root: str | None = None) -> None:
       - As its own *absolute* path, when a venv activation or a project that
         adds itself to ``PYTHONPATH`` puts the directory there explicitly.
 
-    We drop the relative forms outright, then force the real Hermes source root
+    We drop the relative forms outright, then force the real Duck Agent source root
     to the front — relocating it ahead of any absolute cwd entry rather than
     only inserting when absent, so an absolute cwd path can't keep winning.
 
@@ -190,16 +155,11 @@ def harden_import_path(src_root: str | None = None) -> None:
     repository root for every shipped entry point, so the guard is
     self-sufficient and does not depend on the spawner exporting an env var.
     """
-    root = src_root or os.environ.get("HERMES_PYTHON_SRC_ROOT") or os.path.dirname(
-        os.path.abspath(__file__)
-    )
-
-    sys.path[:] = [p for p in sys.path if p not in ("", ".")]
-
+    root = src_root or os.environ.get('HERMES_PYTHON_SRC_ROOT') or os.path.dirname(os.path.abspath(__file__))
+    sys.path[:] = [p for p in sys.path if p not in ('', '.')]
     root_abs = os.path.abspath(root)
     sys.path[:] = [p for p in sys.path if os.path.abspath(p) != root_abs]
     sys.path.insert(0, root)
-
 
 def activate_durable_lazy_target() -> None:
     """Put the durable lazy-install dir on ``sys.path`` if one is configured.
@@ -215,25 +175,13 @@ def activate_durable_lazy_target() -> None:
     always wins name collisions (see ``tools.lazy_deps`` for the full
     security rationale). Never raises; a missing/empty target is a no-op.
     """
-    if not os.environ.get("HERMES_LAZY_INSTALL_TARGET", "").strip():
+    if not os.environ.get('HERMES_LAZY_INSTALL_TARGET', '').strip():
         return
     try:
         from tools import lazy_deps
         lazy_deps.activate_durable_lazy_target()
     except Exception:
-        # Bootstrap must never crash an entry point. If activation fails the
-        # backend simply reports itself unavailable, exactly as before.
         pass
-
-
-# Apply on import — entry points just need ``import hermes_bootstrap``
-# (or ``from hermes_bootstrap import apply_windows_utf8_bootstrap``) at
-# the very top of their module, before importing anything else.  The
-# import side effect does the right thing.
 apply_windows_utf8_bootstrap()
 suppress_platform_ver_console()
-
-# Activate the durable lazy-install target (immutable Docker images) so
-# packages installed into the data volume on a previous run are importable
-# this run, before any backend module imports its SDK. No-op when unset.
 activate_durable_lazy_target()

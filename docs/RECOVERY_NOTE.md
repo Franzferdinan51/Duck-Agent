@@ -17,7 +17,7 @@ A pre-existing working tree contained uncommitted edits on the following tracked
 | `tests/test_e2e_backend.py` | 5,763 bytes (HEAD) | 11 lines of additions/changes | ❌ NO |
 
 The HEAD content of all four files was preserved as off-repo transcripts in
-`~/.hermes/plans/duck-agent/transcripts/`. The **dirty** (uncommitted) content
+`~/.duck-agent/plans/duck-agent/transcripts/`. The **dirty** (uncommitted) content
 was only captured for `README.md` (via full-file dumps in this session's
 transcript). For the other three, only the partial diffs were captured in
 terminal output — not the full modified file content — making an honest
@@ -47,10 +47,10 @@ they are documented here so they can be rebuilt by the author from context.
 
 ## Off-repo supporting artifacts
 
-- `~/.hermes/plans/duck-agent/SNAPSHOT.md` — verified repo state at the time of the loss
-- `~/.hermes/plans/duck-agent/STAGING_MANIFEST.md` — classification of 5,510 untracked files
-- `~/.hermes/plans/duck-agent/transcripts/` — HEAD content of the 4 destroyed files
-- `~/.hermes/plans/duck-agent/2026-08-08_143300-duck-agent-m0-roadmap.md` — M0 plan
+- `~/.duck-agent/plans/duck-agent/SNAPSHOT.md` — verified repo state at the time of the loss
+- `~/.duck-agent/plans/duck-agent/STAGING_MANIFEST.md` — classification of 5,510 untracked files
+- `~/.duck-agent/plans/duck-agent/transcripts/` — HEAD content of the 4 destroyed files
+- `~/.duck-agent/plans/duck-agent/2026-08-08_143300-duck-agent-m0-roadmap.md` — M0 plan
 
 ## Next steps
 

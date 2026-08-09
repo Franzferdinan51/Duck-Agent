@@ -36,9 +36,7 @@ transition to ``abandoned`` (kept briefly for inspection, then pruned).
 Everything here is best-effort by design: ledger failures must never block
 or delay an actual send. Callers wrap every call in try/except.
 """
-
 from __future__ import annotations
-
 import hashlib
 import json
 import logging
@@ -48,32 +46,17 @@ import threading
 import time
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
-
 from hermes_constants import get_hermes_home
-
 logger = logging.getLogger(__name__)
-
 _DB_LOCK = threading.Lock()
-
-# Redelivery policy knobs (module constants; deliberately not config — the
-# ledger itself is gated by ``gateway.delivery_ledger`` and these bounds
-# only matter in the rare recovery path).
 MAX_ATTEMPTS = 3
 STALE_AFTER_SECONDS = 24 * 60 * 60
 _RETENTION_SECONDS = 7 * 24 * 60 * 60
 _MAX_ROWS = 500
-
-# Visible prefix for redeliveries that might duplicate an already-received
-# message (crash mid-send / post-rejection retry). Honest at-least-once.
-RECOVERED_MARKER = (
-    "♻️ Recovered reply — the gateway restarted during delivery, "
-    "so this may be a duplicate:\n\n"
-)
-
+RECOVERED_MARKER = '♻️ Recovered reply — the gateway restarted during delivery, so this may be a duplicate:\n\n'
 
 def _db_path():
-    return get_hermes_home() / "state.db"
-
+    return get_hermes_home() / 'state.db'
 
 def _connect() -> sqlite3.Connection:
     path = _db_path()
@@ -82,35 +65,14 @@ def _connect() -> sqlite3.Connection:
     try:
         _initialize_schema(conn)
     except Exception:
-        # A PRAGMA/DDL failure after a successful connect() must not leak the
-        # just-opened connection back to the caller.
         conn.close()
         raise
     return conn
 
-
 def _initialize_schema(conn: sqlite3.Connection) -> None:
     from hermes_state import apply_wal_with_fallback
-
-    apply_wal_with_fallback(conn, db_label="state.db (delivery_ledger)")
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS delivery_obligations (
-            obligation_id TEXT PRIMARY KEY,
-            session_key TEXT NOT NULL,
-            platform TEXT NOT NULL,
-            chat_id TEXT NOT NULL,
-            thread_id TEXT,
-            content TEXT NOT NULL,
-            state TEXT NOT NULL,
-            attempts INTEGER NOT NULL DEFAULT 0,
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL,
-            owner_pid INTEGER,
-            owner_started_at INTEGER,
-            last_error TEXT
-        )"""
-    )
-
+    apply_wal_with_fallback(conn, db_label='state.db (delivery_ledger)')
+    conn.execute('CREATE TABLE IF NOT EXISTS delivery_obligations (\n            obligation_id TEXT PRIMARY KEY,\n            session_key TEXT NOT NULL,\n            platform TEXT NOT NULL,\n            chat_id TEXT NOT NULL,\n            thread_id TEXT,\n            content TEXT NOT NULL,\n            state TEXT NOT NULL,\n            attempts INTEGER NOT NULL DEFAULT 0,\n            created_at REAL NOT NULL,\n            updated_at REAL NOT NULL,\n            owner_pid INTEGER,\n            owner_started_at INTEGER,\n            last_error TEXT\n        )')
 
 @contextmanager
 def _transaction() -> Iterator[sqlite3.Connection]:
@@ -131,16 +93,13 @@ def _transaction() -> Iterator[sqlite3.Connection]:
     finally:
         conn.close()
 
-
 def _owner_stamp() -> tuple[int, Optional[int]]:
     pid = os.getpid()
     try:
         from gateway.status import get_process_start_time
-
-        return pid, get_process_start_time(pid)
+        return (pid, get_process_start_time(pid))
     except Exception:
-        return pid, None
-
+        return (pid, None)
 
 def _owner_alive(pid: Any, started_at: Any) -> bool:
     """True when the recorded owning process still exists (pid + start time)."""
@@ -152,15 +111,12 @@ def _owner_alive(pid: Any, started_at: Any) -> bool:
         return False
     try:
         from gateway.status import get_process_start_time
-
         current_start = get_process_start_time(pid)
     except Exception:
         current_start = None
     if current_start is None:
-        # No such process (or unreadable) — treat unreadable-but-extant
-        # processes as alive only if the pid exists.
         try:
-            os.kill(pid, 0)  # windows-footgun: ok — EPERM counts as alive below
+            os.kill(pid, 0)
         except ProcessLookupError:
             return False
         except PermissionError:
@@ -175,69 +131,36 @@ def _owner_alive(pid: Any, started_at: Any) -> bool:
     except (TypeError, ValueError):
         return True
 
-
 def compute_obligation_id(session_key: str, message_ref: str, content: str) -> str:
     """Stable id: same turn + same content re-records idempotently, while
     distinct threads/topics on the same chat can never collide (the
     session_key carries platform, chat and thread; ``message_ref`` is the
     triggering inbound message id, distinguishing turns in one session)."""
-    payload = f"{session_key}|{message_ref}|{content}"
-    return hashlib.sha256(payload.encode("utf-8", "replace")).hexdigest()[:24]
+    payload = f'{session_key}|{message_ref}|{content}'
+    return hashlib.sha256(payload.encode('utf-8', 'replace')).hexdigest()[:24]
 
-
-def record_obligation(
-    *,
-    obligation_id: str,
-    session_key: str,
-    platform: str,
-    chat_id: str,
-    thread_id: Optional[str],
-    content: str,
-) -> None:
+def record_obligation(*, obligation_id: str, session_key: str, platform: str, chat_id: str, thread_id: Optional[str], content: str) -> None:
     """Record a final response as owed to the platform (state='pending')."""
     now = time.time()
     pid, started = _owner_stamp()
     with _DB_LOCK, _transaction() as conn:
-        conn.execute(
-            """INSERT OR REPLACE INTO delivery_obligations
-               (obligation_id, session_key, platform, chat_id, thread_id,
-                content, state, attempts, created_at, updated_at,
-                owner_pid, owner_started_at)
-               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)""",
-            (obligation_id, session_key, platform, str(chat_id),
-             str(thread_id) if thread_id else None, content, now, now,
-             pid, started),
-        )
+        conn.execute("INSERT OR REPLACE INTO delivery_obligations\n               (obligation_id, session_key, platform, chat_id, thread_id,\n                content, state, attempts, created_at, updated_at,\n                owner_pid, owner_started_at)\n               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)", (obligation_id, session_key, platform, str(chat_id), str(thread_id) if thread_id else None, content, now, now, pid, started))
     _prune()
 
-
 def mark_attempting(obligation_id: str) -> None:
-    _update_state(obligation_id, "attempting")
-
+    _update_state(obligation_id, 'attempting')
 
 def mark_delivered(obligation_id: str) -> None:
-    _update_state(obligation_id, "delivered")
+    _update_state(obligation_id, 'delivered')
 
+def mark_failed(obligation_id: str, error: str='') -> None:
+    _update_state(obligation_id, 'failed', error=error)
 
-def mark_failed(obligation_id: str, error: str = "") -> None:
-    _update_state(obligation_id, "failed", error=error)
-
-
-def _update_state(obligation_id: str, state: str, error: str = "") -> None:
+def _update_state(obligation_id: str, state: str, error: str='') -> None:
     with _DB_LOCK, _transaction() as conn:
-        conn.execute(
-            """UPDATE delivery_obligations
-               SET state=?, updated_at=?, last_error=?
-               WHERE obligation_id=?""",
-            (state, time.time(), error[:500] if error else None, obligation_id),
-        )
+        conn.execute('UPDATE delivery_obligations\n               SET state=?, updated_at=?, last_error=?\n               WHERE obligation_id=?', (state, time.time(), error[:500] if error else None, obligation_id))
 
-
-def sweep_recoverable(
-    now: Optional[float] = None,
-    *,
-    deliverable_platforms: Optional[set] = None,
-) -> List[Dict[str, Any]]:
+def sweep_recoverable(now: Optional[float]=None, *, deliverable_platforms: Optional[set]=None) -> List[Dict[str, Any]]:
     """Claim undelivered rows owned by dead processes; return them for
     redelivery.
 
@@ -258,117 +181,49 @@ def sweep_recoverable(
     pid, started = _owner_stamp()
     claimed: List[Dict[str, Any]] = []
     with _DB_LOCK, _transaction() as conn:
-        rows = conn.execute(
-            """SELECT obligation_id, session_key, platform, chat_id, thread_id,
-                      content, state, attempts, created_at,
-                      owner_pid, owner_started_at
-               FROM delivery_obligations
-               WHERE state IN ('pending', 'attempting', 'failed')"""
-        ).fetchall()
-        for (oid, session_key, platform, chat_id, thread_id, content, state,
-             attempts, created_at, owner_pid, owner_started_at) in rows:
+        rows = conn.execute("SELECT obligation_id, session_key, platform, chat_id, thread_id,\n                      content, state, attempts, created_at,\n                      owner_pid, owner_started_at\n               FROM delivery_obligations\n               WHERE state IN ('pending', 'attempting', 'failed')").fetchall()
+        for oid, session_key, platform, chat_id, thread_id, content, state, attempts, created_at, owner_pid, owner_started_at in rows:
             if _owner_alive(owner_pid, owner_started_at):
-                continue  # a live gateway still owns this row
-            if attempts >= MAX_ATTEMPTS or (now - created_at) > STALE_AFTER_SECONDS:
-                conn.execute(
-                    """UPDATE delivery_obligations
-                       SET state='abandoned', updated_at=? WHERE obligation_id=?""",
-                    (now, oid),
-                )
                 continue
-            if (
-                deliverable_platforms is not None
-                and platform not in deliverable_platforms
-            ):
-                # No adapter for this platform this boot — the caller cannot
-                # send, so claiming would spend an attempt on a no-op.
+            if attempts >= MAX_ATTEMPTS or now - created_at > STALE_AFTER_SECONDS:
+                conn.execute("UPDATE delivery_obligations\n                       SET state='abandoned', updated_at=? WHERE obligation_id=?", (now, oid))
                 continue
-            cursor = conn.execute(
-                """UPDATE delivery_obligations
-                   SET owner_pid=?, owner_started_at=?, attempts=attempts+1,
-                       updated_at=?
-                   WHERE obligation_id=? AND (owner_pid IS ? OR owner_pid=?)""",
-                (pid, started, now, oid, owner_pid, owner_pid),
-            )
+            if deliverable_platforms is not None and platform not in deliverable_platforms:
+                continue
+            cursor = conn.execute('UPDATE delivery_obligations\n                   SET owner_pid=?, owner_started_at=?, attempts=attempts+1,\n                       updated_at=?\n                   WHERE obligation_id=? AND (owner_pid IS ? OR owner_pid=?)', (pid, started, now, oid, owner_pid, owner_pid))
             if cursor.rowcount:
-                claimed.append({
-                    "obligation_id": oid,
-                    "session_key": session_key,
-                    "platform": platform,
-                    "chat_id": chat_id,
-                    "thread_id": thread_id,
-                    "content": content,
-                    # pending = send never started, redeliver plainly;
-                    # attempting/failed = ambiguous or rejected, carry marker.
-                    "needs_marker": state != "pending",
-                    "attempts": attempts + 1,
-                })
+                claimed.append({'obligation_id': oid, 'session_key': session_key, 'platform': platform, 'chat_id': chat_id, 'thread_id': thread_id, 'content': content, 'needs_marker': state != 'pending', 'attempts': attempts + 1})
     return claimed
 
-
-def _prune(now: Optional[float] = None) -> None:
+def _prune(now: Optional[float]=None) -> None:
     now = now if now is not None else time.time()
     cutoff = now - _RETENTION_SECONDS
     try:
         with _transaction() as conn:
-            conn.execute(
-                """DELETE FROM delivery_obligations
-                   WHERE state IN ('delivered', 'abandoned') AND updated_at < ?""",
-                (cutoff,),
-            )
-            total = conn.execute(
-                "SELECT COUNT(*) FROM delivery_obligations"
-            ).fetchone()[0]
+            conn.execute("DELETE FROM delivery_obligations\n                   WHERE state IN ('delivered', 'abandoned') AND updated_at < ?", (cutoff,))
+            total = conn.execute('SELECT COUNT(*) FROM delivery_obligations').fetchone()[0]
             excess = max(0, total - _MAX_ROWS)
             if excess:
-                conn.execute(
-                    """DELETE FROM delivery_obligations WHERE obligation_id IN (
-                         SELECT obligation_id FROM delivery_obligations
-                         ORDER BY CASE state
-                                    WHEN 'delivered' THEN 0
-                                    WHEN 'abandoned' THEN 1
-                                    ELSE 2
-                                  END, updated_at ASC
-                         LIMIT ?)""",
-                    (excess,),
-                )
+                conn.execute("DELETE FROM delivery_obligations WHERE obligation_id IN (\n                         SELECT obligation_id FROM delivery_obligations\n                         ORDER BY CASE state\n                                    WHEN 'delivered' THEN 0\n                                    WHEN 'abandoned' THEN 1\n                                    ELSE 2\n                                  END, updated_at ASC\n                         LIMIT ?)", (excess,))
     except Exception:
-        logger.debug("delivery ledger prune failed", exc_info=True)
+        logger.debug('delivery ledger prune failed', exc_info=True)
 
-
-def ledger_enabled(config: Optional[Dict[str, Any]] = None) -> bool:
+def ledger_enabled(config: Optional[Dict[str, Any]]=None) -> bool:
     """Read the ``gateway.delivery_ledger`` config gate (default on)."""
     try:
         if config is None:
             from hermes_cli.config import load_config
-
             config = load_config()
-        gw = config.get("gateway") or {}
-        value = gw.get("delivery_ledger", True)
+        gw = config.get('gateway') or {}
+        value = gw.get('delivery_ledger', True)
         if isinstance(value, str):
-            return value.strip().lower() not in {"false", "0", "no", "off"}
+            return value.strip().lower() not in {'false', '0', 'no', 'off'}
         return bool(value)
     except Exception:
         return True
 
-
-def debug_rows(limit: int = 20) -> str:
+def debug_rows(limit: int=20) -> str:
     """Human-readable dump for ad-hoc inspection (sqlite3-free path)."""
     with _DB_LOCK, _transaction() as conn:
-        rows = conn.execute(
-            """SELECT obligation_id, session_key, state, attempts,
-                      created_at, updated_at, last_error
-               FROM delivery_obligations
-               ORDER BY updated_at DESC LIMIT ?""",
-            (limit,),
-        ).fetchall()
-    return json.dumps(
-        [
-            {
-                "id": r[0], "session": r[1], "state": r[2], "attempts": r[3],
-                "created_at": r[4], "updated_at": r[5], "last_error": r[6],
-            }
-            for r in rows
-        ],
-        indent=2,
-    )
+        rows = conn.execute('SELECT obligation_id, session_key, state, attempts,\n                      created_at, updated_at, last_error\n               FROM delivery_obligations\n               ORDER BY updated_at DESC LIMIT ?', (limit,)).fetchall()
+    return json.dumps([{'id': r[0], 'session': r[1], 'state': r[2], 'attempts': r[3], 'created_at': r[4], 'updated_at': r[5], 'last_error': r[6]} for r in rows], indent=2)
