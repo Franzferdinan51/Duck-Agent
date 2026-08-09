@@ -5,8 +5,11 @@ node_modules/
 
 # Build outputs
 dist/
+dist-electron/
+out/
 release/
 build/
+.vite/
 
 # Logs
 logs
@@ -29,9 +32,13 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+# (tracked) .env.example is intentionally not ignored
 
 # Test coverage
 coverage/
+playwright-report/
+test-results/
+.nyc_output/
 
 # Temporary files
 *.tmp
@@ -43,3 +50,24 @@ coverage/
 # Runtime
 *.pyc
 __pycache__/
+*.egg-info/
+*.egg
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ty_cache/
+.hypothesis/
+.tox/
+htmlcov/
+
+# Native build outputs
+native/build/
+*.node
+*.so
+*.dylib
+*.dll
+
+# UV / Python build tooling
+.venv/
+venv/
+env/
