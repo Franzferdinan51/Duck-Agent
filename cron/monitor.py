@@ -28,121 +28,89 @@ State lives in two places, both durable across scheduler restarts:
 Inspired by: ChatGPT Work monitor tasks (idea-level, docs-only);
 enabler: #80774.
 """
-
 from __future__ import annotations
-
 import difflib
 import hashlib
 import logging
 from dataclasses import dataclass
 from typing import Optional
-
 logger = logging.getLogger(__name__)
-
-# Cap for the unified diff injected into the prompt.
 MAX_DIFF_CHARS = 4000
-# Cap for the new-output block injected into the prompt (mirrors the 8k
-# context_from truncation in cron/scheduler.py).
 MAX_OUTPUT_CHARS = 8000
-# Bounded GET limits for monitor_url sources.
 URL_TIMEOUT_SECONDS = 30
-MAX_URL_BYTES = 262_144  # 256 KiB
-
-_SNAPSHOT_FILENAME = "monitor_last_output.txt"
-
+MAX_URL_BYTES = 262144
+_SNAPSHOT_FILENAME = 'monitor_last_output.txt'
 
 @dataclass
 class MonitorOutcome:
     """Result of one monitor-source evaluation."""
-
     ok: bool
     changed: bool = False
     first_run: bool = False
     context_block: Optional[str] = None
     error: Optional[str] = None
 
-
 def hash_monitor_output(output: str) -> str:
     """Hash the monitor output as exact UTF-8 bytes (no normalization)."""
-    return hashlib.sha256(output.encode("utf-8", errors="replace")).hexdigest()
-
+    return hashlib.sha256(output.encode('utf-8', errors='replace')).hexdigest()
 
 def build_monitor_diff(old: str, new: str) -> str:
     """Unified diff of old vs new monitor output, capped at MAX_DIFF_CHARS."""
-    diff = "\n".join(
-        difflib.unified_diff(
-            old.splitlines(),
-            new.splitlines(),
-            fromfile="previous",
-            tofile="current",
-            lineterm="",
-        )
-    )
+    diff = '\n'.join(difflib.unified_diff(old.splitlines(), new.splitlines(), fromfile='previous', tofile='current', lineterm=''))
     if len(diff) > MAX_DIFF_CHARS:
-        diff = diff[:MAX_DIFF_CHARS] + "\n... [diff truncated]"
+        diff = diff[:MAX_DIFF_CHARS] + '\n... [diff truncated]'
     return diff
-
 
 def _snapshot_path(job_id: str):
     from cron.jobs import _job_output_dir
-
     return _job_output_dir(job_id) / _SNAPSHOT_FILENAME
-
 
 def _read_last_output(job_id: str) -> str:
     try:
         path = _snapshot_path(job_id)
         if path.exists():
-            return path.read_text(encoding="utf-8")
+            return path.read_text(encoding='utf-8')
     except Exception as exc:
-        logger.warning("Monitor: failed to read last output for %r: %s", job_id, exc)
-    return ""
-
+        logger.warning('Monitor: failed to read last output for %r: %s', job_id, exc)
+    return ''
 
 def _write_last_output(job_id: str, output: str) -> None:
     try:
         path = _snapshot_path(job_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(output, encoding="utf-8")
+        path.write_text(output, encoding='utf-8')
     except Exception as exc:
-        logger.warning("Monitor: failed to persist last output for %r: %s", job_id, exc)
-
+        logger.warning('Monitor: failed to persist last output for %r: %s', job_id, exc)
 
 def _fetch_monitor_url(url: str) -> tuple[bool, str]:
     """Bounded GET of a monitor URL. Returns (ok, body-or-error)."""
     import urllib.request
-
-    if not str(url).lower().startswith(("http://", "https://")):
-        return False, f"monitor_url must be http(s): {url!r}"
+    if not str(url).lower().startswith(('http://', 'https://')):
+        return (False, f'monitor_url must be http(s): {url!r}')
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "hermes-cron-monitor"})
-        with urllib.request.urlopen(req, timeout=URL_TIMEOUT_SECONDS) as resp:  # nosec B310 — scheme checked above
+        req = urllib.request.Request(url, headers={'User-Agent': 'duck-agent-cron-monitor'})
+        with urllib.request.urlopen(req, timeout=URL_TIMEOUT_SECONDS) as resp:
             body = resp.read(MAX_URL_BYTES + 1)
         if len(body) > MAX_URL_BYTES:
             body = body[:MAX_URL_BYTES]
-        return True, body.decode("utf-8", errors="replace")
+        return (True, body.decode('utf-8', errors='replace'))
     except Exception as exc:
-        return False, f"monitor_url fetch failed: {exc}"
-
+        return (False, f'monitor_url fetch failed: {exc}')
 
 def _run_monitor_source(job: dict) -> tuple[bool, str]:
     """Run the job's monitor source (script or URL). Returns (ok, output)."""
-    monitor_script = (job.get("monitor_script") or "").strip()
+    monitor_script = (job.get('monitor_script') or '').strip()
     if monitor_script:
-        # Same containment + interpreter rules as the existing `script` field.
         from cron.scheduler import _run_job_script
-
-        workdir = (job.get("workdir") or "").strip() or None
+        workdir = (job.get('workdir') or '').strip() or None
         return _run_job_script(monitor_script, workdir=workdir)
-    monitor_url = (job.get("monitor_url") or "").strip()
+    monitor_url = (job.get('monitor_url') or '').strip()
     if monitor_url:
         return _fetch_monitor_url(monitor_url)
-    return False, "monitor job has neither monitor_script nor monitor_url"
-
+    return (False, 'monitor job has neither monitor_script nor monitor_url')
 
 def job_has_monitor(job: dict) -> bool:
-    return bool((job.get("monitor_script") or "").strip() or (job.get("monitor_url") or "").strip())
-
+    return bool((job.get('monitor_script') or '').strip() or (job.get('monitor_url') or '').strip())
 
 def check_monitor(job: dict) -> MonitorOutcome:
     """Run the monitor source and decide whether the agent should run.
@@ -152,61 +120,33 @@ def check_monitor(job: dict) -> MonitorOutcome:
     agent run doesn't re-alert on the same content forever.
     On failure nothing is persisted.
     """
-    job_id = str(job.get("id") or "")
+    job_id = str(job.get('id') or '')
     ok, output = _run_monitor_source(job)
     if not ok:
         return MonitorOutcome(ok=False, error=output)
-
     new_hash = hash_monitor_output(output)
-    raw_state = job.get("monitor_state")
+    raw_state = job.get('monitor_state')
     state = raw_state if isinstance(raw_state, dict) else {}
-    last_hash = state.get("last_output_hash")
-
+    last_hash = state.get('last_output_hash')
     if last_hash is not None and new_hash == last_hash:
         return MonitorOutcome(ok=True, changed=False)
-
     first_run = last_hash is None
-    old_output = "" if first_run else _read_last_output(job_id)
-
+    old_output = '' if first_run else _read_last_output(job_id)
     shown_output = output
     if len(shown_output) > MAX_OUTPUT_CHARS:
-        shown_output = shown_output[:MAX_OUTPUT_CHARS] + "\n... [output truncated]"
-
+        shown_output = shown_output[:MAX_OUTPUT_CHARS] + '\n... [output truncated]'
     if first_run:
-        context_block = (
-            "## Monitor Baseline (first run)\n\n"
-            "This is the first observation of the monitored source — there is "
-            "no previous output to diff against.\n\n"
-            f"### Current output\n\n```\n{shown_output}\n```"
-        )
+        context_block = f'## Monitor Baseline (first run)\n\nThis is the first observation of the monitored source — there is no previous output to diff against.\n\n### Current output\n\n```\n{shown_output}\n```'
     else:
         diff = build_monitor_diff(old_output, output)
-        context_block = (
-            "## MONITOR CHANGE DETECTED\n\n"
-            "The monitored source's output changed since the last run.\n\n"
-            f"### Diff (previous → current)\n\n```diff\n{diff}\n```\n\n"
-            f"### Current output\n\n```\n{shown_output}\n```"
-        )
-
+        context_block = f"## MONITOR CHANGE DETECTED\n\nThe monitored source's output changed since the last run.\n\n### Diff (previous → current)\n\n```diff\n{diff}\n```\n\n### Current output\n\n```\n{shown_output}\n```"
     _persist_monitor_state(job_id, new_hash, output)
-    return MonitorOutcome(
-        ok=True, changed=True, first_run=first_run, context_block=context_block
-    )
-
+    return MonitorOutcome(ok=True, changed=True, first_run=first_run, context_block=context_block)
 
 def _persist_monitor_state(job_id: str, new_hash: str, output: str) -> None:
     from cron.jobs import _hermes_now, update_job
-
     _write_last_output(job_id, output)
     try:
-        update_job(
-            job_id,
-            {
-                "monitor_state": {
-                    "last_output_hash": new_hash,
-                    "last_changed_at": _hermes_now().isoformat(),
-                }
-            },
-        )
+        update_job(job_id, {'monitor_state': {'last_output_hash': new_hash, 'last_changed_at': _hermes_now().isoformat()}})
     except Exception as exc:
-        logger.warning("Monitor: failed to persist state for %r: %s", job_id, exc)
+        logger.warning('Monitor: failed to persist state for %r: %s', job_id, exc)

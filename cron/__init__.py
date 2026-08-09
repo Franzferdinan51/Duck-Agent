@@ -1,5 +1,5 @@
 """
-Cron job scheduling system for Hermes Agent.
+Cron job scheduling system for Duck Agent.
 
 This module provides scheduled task execution, allowing the agent to:
 - Run automated tasks on schedules (cron expressions, intervals, one-shot)
@@ -7,36 +7,13 @@ This module provides scheduled task execution, allowing the agent to:
 - Execute tasks in isolated sessions (no prior context)
 
 Cron jobs are executed automatically by the gateway daemon:
-    hermes gateway install    # Install as a user service
-    sudo hermes gateway install --system  # Linux servers: boot-time system service
-    hermes gateway            # Or run in foreground
+    duck-agent gateway install    # Install as a user service
+    sudo duck-agent gateway install --system  # Linux servers: boot-time system service
+    duck-agent gateway            # Or run in foreground
 
 The gateway ticks the scheduler every 60 seconds. A file lock prevents
 duplicate execution if multiple processes overlap.
 """
-
-from cron.jobs import (
-    create_job,
-    get_job,
-    list_jobs,
-    remove_job,
-    update_job,
-    pause_job,
-    resume_job,
-    trigger_job,
-    JOBS_FILE,
-)
+from cron.jobs import create_job, get_job, list_jobs, remove_job, update_job, pause_job, resume_job, trigger_job, JOBS_FILE
 from cron.scheduler import tick
-
-__all__ = [
-    "create_job",
-    "get_job", 
-    "list_jobs",
-    "remove_job",
-    "update_job",
-    "pause_job",
-    "resume_job",
-    "trigger_job",
-    "tick",
-    "JOBS_FILE",
-]
+__all__ = ['create_job', 'get_job', 'list_jobs', 'remove_job', 'update_job', 'pause_job', 'resume_job', 'trigger_job', 'tick', 'JOBS_FILE']
