@@ -359,6 +359,7 @@ build-backend = "setuptools.build_meta"
 hermes = "hermes_cli.main:main"
 hermes-agent = "run_agent:main"
 hermes-acp = "acp_adapter.entry:main"
+duck-agent = "duck_agent.cli:main"
 
 [tool.uv]
 override-dependencies = [
