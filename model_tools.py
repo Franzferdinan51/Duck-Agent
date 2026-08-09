@@ -1,0 +1,827 @@
+"""
+Model Tools Module
+
+Thin orchestration layer over the tool registry. Each tool file in tools/
+self-registers its schema, handler, and metadata via tools.registry.register().
+This module triggers discovery (by importing all tool modules), then provides
+the public API that run_agent.py, cli.py, batch_runner.py, and the RL
+environments consume.
+
+Public API (signatures preserved from the original 2,400-line version):
+    get_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode) -> list
+    handle_function_call(function_name, function_args, task_id, user_task) -> str
+    TOOL_TO_TOOLSET_MAP: dict          (for batch_runner.py)
+    TOOLSET_REQUIREMENTS: dict         (for cli.py, doctor.py)
+    get_all_tool_names() -> list
+    get_toolset_for_tool(name) -> str
+    get_available_toolsets() -> dict
+    check_toolset_requirements() -> dict
+    check_tool_availability(quiet) -> tuple
+"""
+import os
+import json
+import re
+import asyncio
+import logging
+import threading
+import time
+from typing import Dict, Any, List, Optional, Tuple
+from tools.registry import CHECK_FN_CACHE_BYPASS, check_fn_cache_scope, discover_builtin_tools, registry, tool_error
+from toolsets import resolve_toolset, validate_toolset
+logger = logging.getLogger(__name__)
+_WARNED_DISABLED_BUNDLES: set = set()
+
+def _is_delegated_child_context() -> bool:
+    try:
+        from agent.delegation_context import is_delegated_child_context
+        return is_delegated_child_context()
+    except Exception:
+        return False
+
+def _is_dispatcher_owned_worker() -> bool:
+    """False when HERMES_KANBAN_* is present but this execution does not own it
+    (delegate_task child, or a cron job fired in-process from a worker)."""
+    try:
+        from agent.delegation_context import is_dispatcher_owned_worker_context
+        return is_dispatcher_owned_worker_context()
+    except Exception:
+        return True
+_tool_loop = None
+_tool_loop_lock = threading.Lock()
+_worker_thread_local = threading.local()
+
+def _get_tool_loop():
+    """Return a long-lived event loop for running async tool handlers.
+
+    Using a persistent loop (instead of asyncio.run() which creates and
+    *closes* a fresh loop every time) prevents "Event loop is closed"
+    errors that occur when cached httpx/AsyncOpenAI clients attempt to
+    close their transport on a dead loop during garbage collection.
+    """
+    global _tool_loop
+    with _tool_loop_lock:
+        if _tool_loop is None or _tool_loop.is_closed():
+            _tool_loop = asyncio.new_event_loop()
+        return _tool_loop
+
+def _get_worker_loop():
+    """Return a persistent event loop for the current worker thread.
+
+    Each worker thread (e.g., delegate_task's ThreadPoolExecutor threads)
+    gets its own long-lived loop stored in thread-local storage.  This
+    prevents the "Event loop is closed" errors that occurred when
+    asyncio.run() was used per-call: asyncio.run() creates a loop, runs
+    the coroutine, then *closes* the loop — but cached httpx/AsyncOpenAI
+    clients remain bound to that now-dead loop and raise RuntimeError
+    during garbage collection or subsequent use.
+
+    By keeping the loop alive for the thread's lifetime, cached clients
+    stay valid and their cleanup runs on a live loop.
+    """
+    loop = getattr(_worker_thread_local, 'loop', None)
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _worker_thread_local.loop = loop
+    return loop
+
+def _run_async(coro):
+    """Run an async coroutine from a sync context.
+
+    If the current thread already has a running event loop (e.g., inside
+    the gateway's async stack or Atropos's event loop), we spin up a
+    disposable thread so asyncio.run() can create its own loop without
+    conflicting.
+
+    For the common CLI path (no running loop), we use a persistent event
+    loop so that cached async clients (httpx / AsyncOpenAI) remain bound
+    to a live loop and don't trigger "Event loop is closed" on GC.
+
+    When called from a worker thread (parallel tool execution), we use a
+    per-thread persistent loop to avoid both contention with the main
+    thread's shared loop AND the "Event loop is closed" errors caused by
+    asyncio.run()'s create-and-destroy lifecycle.
+
+    This is the single source of truth for sync->async bridging in tool
+    handlers. Each handler is self-protecting via this function.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        import concurrent.futures
+        worker_loop: Optional[asyncio.AbstractEventLoop] = None
+        loop_ready = threading.Event()
+
+        def _run_in_worker():
+            nonlocal worker_loop
+            worker_loop = asyncio.new_event_loop()
+            loop_ready.set()
+            try:
+                asyncio.set_event_loop(worker_loop)
+                return worker_loop.run_until_complete(coro)
+            finally:
+                try:
+                    pending = asyncio.all_tasks(worker_loop)
+                    for t in pending:
+                        t.cancel()
+                    if pending:
+                        worker_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                except Exception:
+                    pass
+                worker_loop.close()
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        from tools.thread_context import propagate_context_to_thread
+        future = pool.submit(propagate_context_to_thread(_run_in_worker))
+        try:
+            return future.result(timeout=300)
+        except concurrent.futures.TimeoutError:
+            if loop_ready.wait(timeout=1.0) and worker_loop is not None:
+                try:
+                    for t in asyncio.all_tasks(worker_loop):
+                        worker_loop.call_soon_threadsafe(t.cancel)
+                except RuntimeError:
+                    pass
+            raise
+        finally:
+            pool.shutdown(wait=False)
+    if threading.current_thread() is not threading.main_thread():
+        worker_loop = _get_worker_loop()
+        return worker_loop.run_until_complete(coro)
+    tool_loop = _get_tool_loop()
+    return tool_loop.run_until_complete(coro)
+discover_builtin_tools()
+try:
+    from hermes_cli.plugins import discover_plugins
+    discover_plugins()
+except Exception as e:
+    logger.debug('Plugin discovery failed: %s', e)
+TOOL_TO_TOOLSET_MAP: Dict[str, str] = registry.get_tool_to_toolset_map()
+TOOLSET_REQUIREMENTS: Dict[str, dict] = registry.get_toolset_requirements()
+_last_resolved_tool_names: List[str] = []
+_LEGACY_TOOLSET_MAP = {'web_tools': ['web_search', 'web_extract'], 'terminal_tools': ['terminal'], 'vision_tools': ['vision_analyze'], 'image_tools': ['image_generate'], 'skills_tools': ['skills_list', 'skill_view', 'skill_manage'], 'browser_tools': ['browser_navigate', 'browser_snapshot', 'browser_click', 'browser_type', 'browser_scroll', 'browser_back', 'browser_press', 'browser_get_images', 'browser_vision', 'browser_console'], 'cronjob_tools': ['cronjob'], 'file_tools': ['read_file', 'write_file', 'patch', 'search_files'], 'tts_tools': ['text_to_speech']}
+_tool_defs_cache: Dict[tuple, List[Dict[str, Any]]] = {}
+_TOOL_DEFS_CACHE_MAX = 8
+
+def _clear_tool_defs_cache() -> None:
+    """Drop memoized get_tool_definitions() results. Called when dynamic
+    schema dependencies change (e.g. discord capability cache reset,
+    execute_code sandbox reconfigured)."""
+    _tool_defs_cache.clear()
+
+def get_tool_definitions(enabled_toolsets: Optional[List[str]]=None, disabled_toolsets: Optional[List[str]]=None, quiet_mode: bool=False, skip_tool_search_assembly: bool=False) -> List[Dict[str, Any]]:
+    """
+    Get tool definitions for model API calls with toolset-based filtering.
+
+    All tools must be part of a toolset to be accessible.
+
+    Args:
+        enabled_toolsets: Only include tools from these toolsets.
+        disabled_toolsets: Exclude tools from these toolsets (if enabled_toolsets is None).
+        quiet_mode: Suppress status prints.
+        skip_tool_search_assembly: When True, return the pre-assembly tool list
+            (raw schemas for every enabled tool). Used internally by the
+            tool_search / tool_describe bridge handlers so they can read the
+            real catalog, not the already-collapsed one. Public callers should
+            leave this False.
+
+    Returns:
+        Filtered list of OpenAI-format tool definitions.
+    """
+    cache_key = None
+    if quiet_mode:
+        try:
+            from hermes_cli.config import get_config_path
+            cfg_path = get_config_path()
+            cfg_stat = cfg_path.stat()
+            cfg_fp = (cfg_stat.st_mtime_ns, cfg_stat.st_size)
+        except (FileNotFoundError, OSError, ImportError):
+            cfg_fp = None
+        profile_scope = check_fn_cache_scope()
+        if profile_scope != CHECK_FN_CACHE_BYPASS:
+            cache_key = (frozenset(enabled_toolsets) if enabled_toolsets is not None else None, frozenset(disabled_toolsets) if disabled_toolsets else None, registry._generation, cfg_fp, bool(os.environ.get('HERMES_KANBAN_TASK')), bool(skip_tool_search_assembly), _is_delegated_child_context(), _is_dispatcher_owned_worker(), profile_scope)
+        cached = _tool_defs_cache.get(cache_key) if cache_key is not None else None
+        if cached is not None:
+            global _last_resolved_tool_names
+            _last_resolved_tool_names = [t['function']['name'] for t in cached]
+            return list(cached)
+    result = _compute_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode, skip_tool_search_assembly=skip_tool_search_assembly)
+    if quiet_mode and cache_key is not None:
+        if len(_tool_defs_cache) >= _TOOL_DEFS_CACHE_MAX:
+            _tool_defs_cache.pop(next(iter(_tool_defs_cache)))
+        _tool_defs_cache[cache_key] = result
+        return list(result)
+    if quiet_mode:
+        return list(result)
+    return result
+
+def _compute_tool_definitions(enabled_toolsets: Optional[List[str]]=None, disabled_toolsets: Optional[List[str]]=None, quiet_mode: bool=False, skip_tool_search_assembly: bool=False) -> List[Dict[str, Any]]:
+    """Uncached implementation of :func:`get_tool_definitions`."""
+    tools_to_include: set = set()
+    if enabled_toolsets is not None:
+        effective_enabled_toolsets = list(enabled_toolsets)
+        if os.environ.get('HERMES_KANBAN_TASK') and (not _is_delegated_child_context()) and _is_dispatcher_owned_worker() and ('kanban' not in effective_enabled_toolsets):
+            effective_enabled_toolsets.append('kanban')
+        for toolset_name in effective_enabled_toolsets:
+            if validate_toolset(toolset_name):
+                resolved = resolve_toolset(toolset_name)
+                tools_to_include.update(resolved)
+                if not quiet_mode:
+                    print(f"✅ Enabled toolset '{toolset_name}': {(', '.join(resolved) if resolved else 'no tools')}")
+            elif toolset_name in _LEGACY_TOOLSET_MAP:
+                legacy_tools = _LEGACY_TOOLSET_MAP[toolset_name]
+                tools_to_include.update(legacy_tools)
+                if not quiet_mode:
+                    print(f"✅ Enabled legacy toolset '{toolset_name}': {', '.join(legacy_tools)}")
+            elif not quiet_mode:
+                print(f'⚠️  Unknown toolset: {toolset_name}')
+    else:
+        from toolsets import get_all_toolsets
+        for ts_name in get_all_toolsets():
+            tools_to_include.update(resolve_toolset(ts_name))
+    if disabled_toolsets:
+        for toolset_name in disabled_toolsets:
+            if validate_toolset(toolset_name):
+                from toolsets import bundle_non_core_tools, get_toolset
+                if toolset_name.startswith('duck-agent-') or (get_toolset(toolset_name) or {}).get('posture'):
+                    to_remove = bundle_non_core_tools(toolset_name)
+                    tools_to_include.difference_update(to_remove)
+                    resolved = sorted(to_remove)
+                    if not quiet_mode and toolset_name.startswith('duck-agent-') and (toolset_name not in _WARNED_DISABLED_BUNDLES):
+                        _WARNED_DISABLED_BUNDLES.add(toolset_name)
+                        logger.info("agent.disabled_toolsets contains platform-bundle name '%s'; core tools are preserved and only its platform-specific tools (%s) are removed. Bundle names usually belong in `toolsets:`, not `disabled_toolsets` (#33924).", toolset_name, ', '.join(resolved) if resolved else 'none')
+                else:
+                    resolved = resolve_toolset(toolset_name)
+                    tools_to_include.difference_update(resolved)
+                if not quiet_mode:
+                    print(f"🚫 Disabled toolset '{toolset_name}': {(', '.join(resolved) if resolved else 'no tools')}")
+            elif toolset_name in _LEGACY_TOOLSET_MAP:
+                legacy_tools = _LEGACY_TOOLSET_MAP[toolset_name]
+                tools_to_include.difference_update(legacy_tools)
+                if not quiet_mode:
+                    print(f"🚫 Disabled legacy toolset '{toolset_name}': {', '.join(legacy_tools)}")
+            elif not quiet_mode:
+                print(f'⚠️  Unknown toolset: {toolset_name}')
+    filtered_tools = registry.get_definitions(tools_to_include, quiet=quiet_mode)
+    available_tool_names = {t['function']['name'] for t in filtered_tools}
+    if 'execute_code' in available_tool_names:
+        from tools.code_execution_tool import SANDBOX_ALLOWED_TOOLS, build_execute_code_schema, _get_execution_mode
+        sandbox_enabled = SANDBOX_ALLOWED_TOOLS & available_tool_names
+        dynamic_schema = build_execute_code_schema(sandbox_enabled, mode=_get_execution_mode())
+        for i, td in enumerate(filtered_tools):
+            if td.get('function', {}).get('name') == 'execute_code':
+                filtered_tools[i] = {'type': 'function', 'function': dynamic_schema}
+                break
+    _discord_schema_fns = {'discord': 'get_dynamic_schema_core', 'discord_admin': 'get_dynamic_schema_admin'}
+    for discord_tool_name in _discord_schema_fns:
+        if discord_tool_name in available_tool_names:
+            try:
+                from tools import discord_tool as _dt
+                schema_fn = getattr(_dt, _discord_schema_fns[discord_tool_name])
+                dynamic = schema_fn()
+            except Exception:
+                dynamic = None
+            if dynamic is None:
+                filtered_tools = [t for t in filtered_tools if t.get('function', {}).get('name') != discord_tool_name]
+                available_tool_names.discard(discord_tool_name)
+            else:
+                for i, td in enumerate(filtered_tools):
+                    if td.get('function', {}).get('name') == discord_tool_name:
+                        filtered_tools[i] = {'type': 'function', 'function': dynamic}
+                        break
+    if 'browser_navigate' in available_tool_names:
+        web_tools_available = {'web_search', 'web_extract'} & available_tool_names
+        if not web_tools_available:
+            for i, td in enumerate(filtered_tools):
+                if td.get('function', {}).get('name') == 'browser_navigate':
+                    desc = td['function'].get('description', '')
+                    desc = desc.replace(' For simple information retrieval, prefer web_search or web_extract (faster, cheaper).', '')
+                    filtered_tools[i] = {'type': 'function', 'function': {**td['function'], 'description': desc}}
+                    break
+    if not quiet_mode:
+        if filtered_tools:
+            tool_names = [t['function']['name'] for t in filtered_tools]
+            print(f"🛠️  Final tool selection ({len(filtered_tools)} tools): {', '.join(tool_names)}")
+        else:
+            print('🛠️  No tools selected (all filtered out or unavailable)')
+    global _last_resolved_tool_names
+    _last_resolved_tool_names = [t['function']['name'] for t in filtered_tools]
+    try:
+        from tools.schema_sanitizer import sanitize_tool_schemas
+        filtered_tools = sanitize_tool_schemas(filtered_tools)
+    except Exception as e:
+        logger.warning('Schema sanitization skipped: %s', e)
+    try:
+        from tools.tool_search import assemble_tool_defs, load_config as _load_ts_config
+        ts_cfg = _load_ts_config()
+        if not skip_tool_search_assembly and ts_cfg.enabled != 'off':
+            context_length = _resolve_active_context_length()
+            assembly = assemble_tool_defs(filtered_tools, context_length=context_length, config=ts_cfg)
+            if assembly.activated and (not quiet_mode):
+                _forms = {'full': 'catalog listing embedded', 'names': 'names-only listing embedded', 'mixed': 'listing embedded (oversized servers summarized)', 'groups': 'server summary embedded (search-only discovery)', 'none': 'no listing (search-only)'}
+                print(f'🔎 Tool Search (tier {assembly.tier}): {assembly.deferred_count} MCP/plugin tools deferred (~{assembly.deferred_tokens} tokens) behind tool_search/describe/call — {_forms.get(assembly.listing_form, assembly.listing_form)}.')
+            filtered_tools = assembly.tool_defs
+    except Exception as e:
+        logger.warning('Tool search assembly skipped: %s', e)
+    return filtered_tools
+
+def _resolve_active_context_length() -> int:
+    """Look up the active model's context length for the tool-search gate.
+
+    Returns 0 when the model can't be resolved — ``should_activate`` falls
+    back to a fixed token cutoff in that case.
+    """
+    try:
+        from hermes_cli.config import load_config as _load
+        cfg = _load() or {}
+        model_cfg = cfg.get('model') if isinstance(cfg.get('model'), dict) else {}
+        if not isinstance(model_cfg, dict):
+            model_cfg = {}
+        model_id = (model_cfg.get('model') or model_cfg.get('default') or '').strip()
+        if not model_id:
+            return 0
+        from agent.model_metadata import get_model_context_length
+        raw_ctx = model_cfg.get('context_length')
+        config_ctx = raw_ctx if isinstance(raw_ctx, int) and raw_ctx > 0 else None
+        provider = str(model_cfg.get('provider') or '').strip()
+        base_url = str(model_cfg.get('base_url') or '').strip()
+        api_key = ''
+        if provider:
+            try:
+                from hermes_cli.runtime_provider import resolve_runtime_provider
+                rt = resolve_runtime_provider(requested=provider, target_model=model_id) or {}
+                base_url = str(rt.get('base_url') or base_url or '').strip()
+                api_key = str(rt.get('api_key') or '').strip()
+            except Exception as rt_exc:
+                logger.debug('Runtime credential resolution failed for tool-search context gate (provider=%s): %s — using config values only', provider, rt_exc)
+        return int(get_model_context_length(model_id, base_url=base_url, api_key=api_key, config_context_length=config_ctx, provider=provider) or 0)
+    except Exception as e:
+        logger.debug('Could not resolve active context length: %s', e)
+        return 0
+_AGENT_LOOP_TOOLS = {'todo', 'memory', 'session_search', 'delegate_task'}
+_READ_SEARCH_TOOLS = {'read_file', 'search_files'}
+_TOOL_ERROR_ROLE_TAG_RE = re.compile('</?(?:tool_call|function_call|result|response|output|input|system|assistant|user)>', re.IGNORECASE)
+_TOOL_ERROR_FENCE_OPEN_RE = re.compile('^\\s*```(?:json|xml|html|markdown)?\\s*', re.MULTILINE)
+_TOOL_ERROR_FENCE_CLOSE_RE = re.compile('\\s*```\\s*$', re.MULTILINE)
+_TOOL_ERROR_CDATA_RE = re.compile('<!\\[CDATA\\[.*?\\]\\]>', re.DOTALL)
+_TOOL_ERROR_MAX_LEN = 2000
+
+def _sanitize_tool_error(error_msg: str) -> str:
+    """Strip structural framing tokens from a tool error before showing it to the model.
+
+    See _TOOL_ERROR_ROLE_TAG_RE docstring above for rationale.
+    """
+    if not error_msg:
+        return '[TOOL_ERROR] '
+    sanitized = _TOOL_ERROR_ROLE_TAG_RE.sub('', error_msg)
+    sanitized = _TOOL_ERROR_FENCE_OPEN_RE.sub('', sanitized)
+    sanitized = _TOOL_ERROR_FENCE_CLOSE_RE.sub('', sanitized)
+    sanitized = _TOOL_ERROR_CDATA_RE.sub('', sanitized)
+    if len(sanitized) > _TOOL_ERROR_MAX_LEN:
+        sanitized = sanitized[:_TOOL_ERROR_MAX_LEN - 3] + '...'
+    return f'[TOOL_ERROR] {sanitized}'
+
+def coerce_tool_args(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce tool call arguments to match their JSON Schema types.
+
+    LLMs frequently return numbers as strings (``"42"`` instead of ``42``)
+    and booleans as strings (``"true"`` instead of ``true``).  This compares
+    each argument value against the tool's registered JSON Schema and attempts
+    safe coercion when the value is a string but the schema expects a different
+    type.  Original values are preserved when coercion fails.
+
+    Handles ``"type": "integer"``, ``"type": "number"``, ``"type": "boolean"``,
+    and union types (``"type": ["integer", "string"]``).
+
+    Also wraps bare scalar values in a single-element list when the schema
+    declares ``"type": "array"``.  Open-weight models (DeepSeek, Qwen, GLM)
+    sometimes emit ``{"urls": "https://a.com"}`` when the tool expects
+    ``{"urls": ["https://a.com"]}``; wrapping here avoids a confusing tool
+    failure on what is otherwise a well-formed call.
+    """
+    if not args or not isinstance(args, dict):
+        return args
+    schema = registry.get_schema(tool_name)
+    if not schema:
+        return args
+    properties = (schema.get('parameters') or {}).get('properties')
+    if not properties:
+        return args
+    try:
+        from tools.schema_sanitizer import unrename_tool_args
+        args = unrename_tool_args(schema.get('parameters'), args)
+    except Exception:
+        pass
+    for key, value in list(args.items()):
+        prop_schema = properties.get(key)
+        if not prop_schema:
+            continue
+        expected = prop_schema.get('type')
+        if expected == 'array' and value is not None and (not isinstance(value, (list, tuple))):
+            if isinstance(value, str):
+                coerced = _coerce_value(value, expected, schema=prop_schema)
+                if coerced is not value:
+                    args[key] = coerced
+                    continue
+                if value.strip().startswith('['):
+                    logger.warning('coerce_tool_args: %s.%s looks like a JSON array string but could not be parsed — model may have emitted a JSON-encoded string instead of a native array. Falling back to single-element list.', tool_name, key)
+                args[key] = [value]
+                logger.info('coerce_tool_args: wrapped bare string in list for %s.%s', tool_name, key)
+                continue
+            args[key] = [value]
+            logger.info('coerce_tool_args: wrapped bare %s in list for %s.%s', type(value).__name__, tool_name, key)
+            continue
+        if not isinstance(value, str):
+            if expected == 'array' and isinstance(value, (list, tuple)):
+                args[key] = _normalize_json_strings_for_schema(value, prop_schema)
+            elif expected == 'object' and isinstance(value, dict):
+                args[key] = _normalize_json_strings_for_schema(value, prop_schema)
+            continue
+        if not expected and (not _schema_allows_null(prop_schema)):
+            continue
+        coerced = _coerce_value(value, expected, schema=prop_schema)
+        if coerced is not value:
+            args[key] = coerced
+            if isinstance(coerced, (list, tuple, dict)):
+                args[key] = _normalize_json_strings_for_schema(coerced, prop_schema)
+    return args
+
+def _schema_accepts_kind(schema: Any, kind: str) -> bool:
+    """Return True when *schema* permits a value of JSON type *kind*.
+
+    Looks at ``type`` (string or list) and recurses through
+    ``anyOf``/``oneOf``/``allOf`` branches — matching the JSON-Schema shapes
+    open-weight models emit against. ``kind`` is ``"array"`` or ``"object"``.
+    """
+    if not isinstance(schema, dict):
+        return False
+    t = schema.get('type')
+    if t == kind or (isinstance(t, list) and kind in t):
+        return True
+    for union_key in ('anyOf', 'oneOf', 'allOf'):
+        branches = schema.get(union_key)
+        if isinstance(branches, list) and any((_schema_accepts_kind(b, kind) for b in branches)):
+            return True
+    return False
+
+def _normalize_json_strings_for_schema(value: Any, schema: Any) -> Any:
+    """Recursively parse JSON-encoded string values that a schema expects to
+    be arrays or objects, including nested array items and object properties.
+
+    Open-weight models (DeepSeek, Qwen, GLM, and others) sometimes emit a
+    structured field — or an *element* of a structured field — as a
+    JSON-encoded string instead of a native value. The top-level
+    :func:`coerce_tool_args` pass repairs the outermost value; this helper
+    walks the rest of the tree so cases like::
+
+        {"todos": ["{\\"id\\": \\"1\\", \\"content\\": \\"x\\"}"]}
+
+    (a list whose elements are JSON strings) and nested object sub-fields are
+    repaired too. Parsing is schema-guided: a string is only parsed when the
+    matching schema position actually expects an array or object, so
+    legitimate JSON-looking string fields (``type: string``) are preserved.
+
+    Ported from cline/cline#11803, adapted to duck-agent's coercion layer.
+    Returns the original value object when nothing changed (identity preserved
+    so callers can cheaply detect no-ops).
+    """
+    if not isinstance(schema, dict):
+        return value
+    if isinstance(value, str):
+        trimmed = value.strip()
+        expects_array = _schema_accepts_kind(schema, 'array')
+        expects_object = _schema_accepts_kind(schema, 'object')
+        if expects_array and trimmed.startswith('[') or (expects_object and trimmed.startswith('{')):
+            try:
+                parsed = json.loads(trimmed)
+            except (ValueError, TypeError):
+                return value
+            if isinstance(parsed, list) and expects_array:
+                value = parsed
+            elif isinstance(parsed, dict) and expects_object:
+                value = parsed
+            else:
+                return value
+        else:
+            return value
+    if isinstance(value, list):
+        items_schema = schema.get('items')
+        if not isinstance(items_schema, dict):
+            return value
+        changed = False
+        out = []
+        for item in value:
+            nxt = _normalize_json_strings_for_schema(item, items_schema)
+            changed = changed or nxt is not item
+            out.append(nxt)
+        return out if changed else value
+    if isinstance(value, dict):
+        props = schema.get('properties')
+        if not isinstance(props, dict):
+            return value
+        changed = False
+        out = dict(value)
+        for k, prop_schema in props.items():
+            if k not in value or not isinstance(prop_schema, dict):
+                continue
+            nxt = _normalize_json_strings_for_schema(value[k], prop_schema)
+            if nxt is not value[k]:
+                out[k] = nxt
+                changed = True
+        return out if changed else value
+    return value
+
+def _coerce_value(value: str, expected_type, schema: dict | None=None):
+    """Attempt to coerce a string *value* to *expected_type*.
+
+    Returns the original string when coercion is not applicable or fails.
+    """
+    if _schema_allows_null(schema) and value.strip().lower() == 'null':
+        return None
+    if isinstance(expected_type, list):
+        for t in expected_type:
+            result = _coerce_value(value, t, schema=schema)
+            if result is not value:
+                return result
+        return value
+    if expected_type in {'integer', 'number'}:
+        return _coerce_number(value, integer_only=expected_type == 'integer')
+    if expected_type == 'boolean':
+        return _coerce_boolean(value)
+    if expected_type == 'array':
+        return _coerce_json(value, list)
+    if expected_type == 'object':
+        return _coerce_json(value, dict)
+    if expected_type == 'null' and value.strip().lower() == 'null':
+        return None
+    return value
+
+def _schema_allows_null(schema: dict | None) -> bool:
+    """Return True when a JSON Schema fragment explicitly permits null."""
+    if not isinstance(schema, dict):
+        return False
+    schema_type = schema.get('type')
+    if schema_type == 'null':
+        return True
+    if isinstance(schema_type, list) and 'null' in schema_type:
+        return True
+    if schema.get('nullable') is True:
+        return True
+    for union_key in ('anyOf', 'oneOf'):
+        variants = schema.get(union_key)
+        if not isinstance(variants, list):
+            continue
+        for variant in variants:
+            if isinstance(variant, dict) and variant.get('type') == 'null':
+                return True
+    return False
+
+def _coerce_json(value: str, expected_python_type: type):
+    """Parse *value* as JSON when the schema expects an array or object.
+
+    Handles model output drift where a complex oneOf/discriminated-union schema
+    causes the LLM to emit the array/object as a JSON string instead of a native
+    structure.  Returns the original string if parsing fails or yields the wrong
+    Python type.
+    """
+    try:
+        parsed = json.loads(value)
+    except (ValueError, TypeError) as exc:
+        logger.warning('coerce_tool_args: failed to parse string as JSON for expected type %s: %s', expected_python_type.__name__, exc)
+        return value
+    if isinstance(parsed, expected_python_type):
+        logger.debug('coerce_tool_args: coerced string to %s via json.loads', expected_python_type.__name__)
+        return parsed
+    logger.warning('coerce_tool_args: JSON-parsed value is %s, expected %s — skipping coercion', type(parsed).__name__, expected_python_type.__name__)
+    return value
+
+def _coerce_number(value: str, integer_only: bool=False):
+    """Try to parse *value* as a number.  Returns original string on failure."""
+    try:
+        f = float(value)
+    except (ValueError, OverflowError):
+        return value
+    if f != f or f == float('inf') or f == float('-inf'):
+        return value
+    if f == int(f):
+        return int(f)
+    if integer_only:
+        return value
+    return f
+
+def _coerce_boolean(value: str):
+    """Try to parse *value* as a boolean.  Returns original string on failure."""
+    low = value.strip().lower()
+    if low == 'true':
+        return True
+    if low == 'false':
+        return False
+    return value
+
+def _tool_result_observer_fields(tool_name: str, result: Any) -> tuple[str, Optional[str], Optional[str]]:
+    try:
+        parsed_result = json.loads(result) if isinstance(result, str) else result
+        if isinstance(parsed_result, dict) and parsed_result.get('error'):
+            return ('error', 'tool_error', str(parsed_result.get('error')))
+    except Exception:
+        pass
+    try:
+        from agent.display import _detect_tool_failure
+        failed, suffix = _detect_tool_failure(tool_name, result)
+        if failed:
+            return ('error', 'tool_error', suffix.strip().strip('[]') or None)
+    except Exception:
+        pass
+    return ('ok', None, None)
+
+def _emit_post_tool_call_hook(*, function_name: str, function_args: Dict[str, Any], result: Any, task_id: Optional[str]=None, session_id: Optional[str]=None, tool_call_id: Optional[str]=None, turn_id: Optional[str]=None, api_request_id: Optional[str]=None, duration_ms: int=0, status: Optional[str]=None, error_type: Optional[str]=None, error_message: Optional[str]=None, middleware_trace: Optional[List[Dict[str, Any]]]=None) -> None:
+    """Emit the ``post_tool_call`` observer hook.
+
+    No-ops cheaply when no plugin has registered for ``post_tool_call`` —
+    the ``has_hook`` gate skips both the result-field derivation and the
+    payload dispatch so the no-listener path costs one dict lookup.  When
+    ``status`` is not supplied, the ok/error fields are derived from the
+    result *after* the gate (parsing the result is only worth it when a
+    listener will actually consume it).
+    """
+    try:
+        from hermes_cli.lifecycle import has_hook, invoke_hook
+        if not has_hook('post_tool_call'):
+            return
+        if status is None:
+            status, error_type, error_message = _tool_result_observer_fields(function_name, result)
+        invoke_hook('post_tool_call', tool_name=function_name, args=function_args, result=result, task_id=task_id or '', session_id=session_id or '', tool_call_id=tool_call_id or '', turn_id=turn_id or '', api_request_id=api_request_id or '', duration_ms=duration_ms, status=status, error_type=error_type, error_message=error_message, middleware_trace=list(middleware_trace or []))
+    except Exception as _hook_err:
+        logger.debug('post_tool_call hook error: %s', _hook_err)
+
+def handle_function_call(function_name: str, function_args: Dict[str, Any], task_id: Optional[str]=None, tool_call_id: Optional[str]=None, session_id: Optional[str]=None, turn_id: Optional[str]=None, api_request_id: Optional[str]=None, user_task: Optional[str]=None, enabled_tools: Optional[List[str]]=None, skip_pre_tool_call_hook: bool=False, skip_tool_request_middleware: bool=False, skip_tool_execution_middleware: bool=False, tool_request_middleware_trace: Optional[List[Dict[str, Any]]]=None, enabled_toolsets: Optional[List[str]]=None, disabled_toolsets: Optional[List[str]]=None) -> str:
+    """
+    Main function call dispatcher that routes calls to the tool registry.
+
+    Args:
+        function_name: Name of the function to call.
+        function_args: Arguments for the function.
+        task_id: Unique identifier for terminal/browser session isolation.
+        user_task: The user's original task (for browser_snapshot context).
+        enabled_tools: Tool names enabled for this session.  When provided,
+                       execute_code uses this list to determine which sandbox
+                       tools to generate.  Falls back to the process-global
+                       ``_last_resolved_tool_names`` for backward compat.
+        enabled_toolsets: The session's enabled toolsets.  Used to scope the
+                       Tool Search bridge catalog so ``tool_search`` /
+                       ``tool_describe`` / ``tool_call`` only see and invoke
+                       tools the session was actually granted.  ``None`` means
+                       "no restriction" (the caller scopes to every toolset),
+                       matching ``get_tool_definitions`` semantics.
+        disabled_toolsets: The session's disabled toolsets, applied as a
+                       subtraction when scoping the bridge catalog.
+
+    Returns:
+        Function result as a JSON string.
+    """
+    function_args = coerce_tool_args(function_name, function_args)
+    if not isinstance(function_args, dict):
+        function_args = {}
+    _tool_middleware_trace = list(tool_request_middleware_trace or [])
+    _dispatch_start = time.monotonic()
+
+    def _return_bridge_result(result: Any) -> Any:
+        _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=result, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, duration_ms=int((time.monotonic() - _dispatch_start) * 1000), middleware_trace=list(_tool_middleware_trace))
+        return result
+    _ts_mod = None
+    try:
+        from tools import tool_search as _ts_mod
+    except Exception:
+        _ts_mod = None
+    if _ts_mod is not None and _ts_mod.is_bridge_tool(function_name):
+        try:
+            current_defs = get_tool_definitions(enabled_toolsets=enabled_toolsets, disabled_toolsets=disabled_toolsets, quiet_mode=True, skip_tool_search_assembly=True) or []
+        except Exception:
+            current_defs = []
+        if function_name == _ts_mod.TOOL_SEARCH_NAME:
+            return _return_bridge_result(_ts_mod.dispatch_tool_search(function_args or {}, current_tool_defs=current_defs))
+        if function_name == _ts_mod.TOOL_DESCRIBE_NAME:
+            return _return_bridge_result(_ts_mod.dispatch_tool_describe(function_args or {}, current_tool_defs=current_defs))
+        if function_name == _ts_mod.TOOL_CALL_NAME:
+            underlying_name, underlying_args, err = _ts_mod.resolve_underlying_call(function_args or {})
+            if err or not underlying_name:
+                return _return_bridge_result(tool_error(err or 'tool_call could not be resolved'))
+            _scoped_deferrable = _ts_mod.scoped_deferrable_names(current_defs)
+            if underlying_name not in _scoped_deferrable:
+                return _return_bridge_result(tool_error(f"'{underlying_name}' is not available in this session. Use tool_search to find tools you can call."))
+            _probe_err = _ts_mod.validate_deferred_call_args(underlying_name, underlying_args)
+            if _probe_err is not None:
+                return _return_bridge_result(_probe_err)
+            return handle_function_call(function_name=underlying_name, function_args=underlying_args, task_id=task_id, tool_call_id=tool_call_id, session_id=session_id, turn_id=turn_id, api_request_id=api_request_id, user_task=user_task, enabled_tools=enabled_tools, skip_pre_tool_call_hook=skip_pre_tool_call_hook, skip_tool_request_middleware=skip_tool_request_middleware, skip_tool_execution_middleware=skip_tool_execution_middleware, tool_request_middleware_trace=list(_tool_middleware_trace), enabled_toolsets=enabled_toolsets, disabled_toolsets=disabled_toolsets)
+    _tool_original_args = dict(function_args)
+    if not skip_tool_request_middleware:
+        try:
+            from hermes_cli.middleware import apply_tool_request_middleware
+            _tool_request_mw = apply_tool_request_middleware(function_name, function_args, task_id=task_id or '', session_id=session_id or '', tool_call_id=tool_call_id or '', turn_id=turn_id or '', api_request_id=api_request_id or '')
+            function_args = _tool_request_mw.payload
+            _tool_original_args = _tool_request_mw.original_payload
+            _tool_middleware_trace = _tool_request_mw.trace
+        except Exception as _mw_err:
+            logger.debug('tool_request middleware error: %s', _mw_err)
+    try:
+        if function_name in _AGENT_LOOP_TOOLS:
+            return tool_error(f'{function_name} must be handled by the agent loop')
+        if not skip_pre_tool_call_hook:
+            block_message: Optional[str] = None
+            try:
+                from hermes_cli.plugins import resolve_pre_tool_block
+                block_message = resolve_pre_tool_block(function_name, function_args, task_id=task_id or '', session_id=session_id or '', tool_call_id=tool_call_id or '', turn_id=turn_id or '', api_request_id=api_request_id or '', middleware_trace=list(_tool_middleware_trace))
+            except Exception as _hook_err:
+                logger.debug('pre_tool_call hook error: %s', _hook_err)
+            if block_message is not None:
+                result = tool_error(block_message)
+                _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=result, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, status='blocked', error_type='plugin_block', error_message=block_message, middleware_trace=list(_tool_middleware_trace))
+                return result
+        try:
+            from acp_adapter.edit_approval import maybe_require_edit_approval
+            edit_block_message = maybe_require_edit_approval(function_name, function_args)
+            if edit_block_message is not None:
+                _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=edit_block_message, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, status='blocked', error_type='edit_approval_denied', middleware_trace=list(_tool_middleware_trace))
+                return edit_block_message
+        except Exception as _edit_approval_err:
+            logger.debug('ACP edit approval guard error: %s', _edit_approval_err)
+            if function_name in {'write_file', 'patch'}:
+                result = tool_error('Edit approval denied: approval guard failed')
+                _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=result, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, status='blocked', error_type='edit_approval_error', middleware_trace=list(_tool_middleware_trace))
+                return result
+        if function_name not in _READ_SEARCH_TOOLS:
+            try:
+                from tools.file_tools import notify_other_tool_call
+                notify_other_tool_call(task_id or 'default')
+            except Exception:
+                pass
+        _dispatch_start = time.monotonic()
+        _approval_tokens = None
+        try:
+            from tools.approval import reset_current_observability_context, set_current_observability_context
+            _approval_tokens = set_current_observability_context(turn_id=turn_id or '', tool_call_id=tool_call_id or '')
+        except Exception:
+            reset_current_observability_context = None
+        try:
+            if function_name == 'execute_code':
+                sandbox_enabled = enabled_tools if enabled_tools is not None else _last_resolved_tool_names
+
+                def _dispatch(next_args: Dict[str, Any]) -> Any:
+                    return registry.dispatch(function_name, next_args, task_id=task_id, session_id=session_id, enabled_tools=sandbox_enabled)
+            else:
+
+                def _dispatch(next_args: Dict[str, Any]) -> Any:
+                    return registry.dispatch(function_name, next_args, task_id=task_id, session_id=session_id, user_task=user_task)
+            if skip_tool_execution_middleware:
+                result = _dispatch(function_args)
+            else:
+                from hermes_cli.middleware import run_tool_execution_middleware
+                result = run_tool_execution_middleware(function_name, function_args, _dispatch, original_args=_tool_original_args, task_id=task_id or '', session_id=session_id or '', tool_call_id=tool_call_id or '', turn_id=turn_id or '', api_request_id=api_request_id or '')
+        finally:
+            if _approval_tokens is not None and reset_current_observability_context is not None:
+                try:
+                    reset_current_observability_context(_approval_tokens)
+                except Exception:
+                    pass
+        duration_ms = int((time.monotonic() - _dispatch_start) * 1000)
+        _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=result, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, duration_ms=duration_ms, middleware_trace=list(_tool_middleware_trace))
+        try:
+            from hermes_cli.lifecycle import has_hook, invoke_hook
+            if has_hook('transform_tool_result'):
+                status, error_type, error_message = _tool_result_observer_fields(function_name, result)
+                hook_results = invoke_hook('transform_tool_result', tool_name=function_name, args=function_args, result=result, task_id=task_id or '', session_id=session_id or '', tool_call_id=tool_call_id or '', turn_id=turn_id or '', api_request_id=api_request_id or '', duration_ms=duration_ms, status=status, error_type=error_type, error_message=error_message)
+                for hook_result in hook_results:
+                    if isinstance(hook_result, str):
+                        result = hook_result
+                        break
+        except Exception as _hook_err:
+            logger.debug('transform_tool_result hook error: %s', _hook_err)
+        return result
+    except Exception as e:
+        error_msg = f'Error executing {function_name}: {str(e)}'
+        logger.exception(error_msg)
+        result = tool_error(_sanitize_tool_error(error_msg))
+        duration_ms = int((time.monotonic() - _dispatch_start) * 1000) if _dispatch_start is not None else 0
+        _emit_post_tool_call_hook(function_name=function_name, function_args=function_args, result=result, task_id=task_id, session_id=session_id, tool_call_id=tool_call_id, turn_id=turn_id, api_request_id=api_request_id, duration_ms=duration_ms, status='error', error_type=type(e).__name__, error_message=str(e), middleware_trace=list(_tool_middleware_trace))
+        return result
+
+def get_all_tool_names() -> List[str]:
+    """Return all registered tool names."""
+    return registry.get_all_tool_names()
+
+def get_toolset_for_tool(tool_name: str) -> Optional[str]:
+    """Return the toolset a tool belongs to."""
+    return registry.get_toolset_for_tool(tool_name)
+
+def get_available_toolsets() -> Dict[str, dict]:
+    """Return toolset availability info for UI display."""
+    return registry.get_available_toolsets()
+
+def check_toolset_requirements() -> Dict[str, bool]:
+    """Return {toolset: available_bool} for every registered toolset."""
+    return registry.check_toolset_requirements()
+
+def check_tool_availability(quiet: bool=False) -> Tuple[List[str], List[dict]]:
+    """Return (available_toolsets, unavailable_info)."""
+    return registry.check_tool_availability(quiet=quiet)
