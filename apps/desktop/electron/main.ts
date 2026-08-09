@@ -539,32 +539,18 @@ if (INSTALL_STAMP) {
 // HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
 // touches the user's real ~/.duck-agent / %LOCALAPPDATA%\duck-agent.
 function resolveHermesHome() {
-  if (process.env.HERMES_HOME) {
-    return normalizeHermesHomeRoot(process.env.HERMES_HOME)
+  // Duck-Agent is locally standalone: never inherit Hermes's HERMES_HOME.
+  // The only supported local override is DUCK_AGENT_HOME.
+  if (process.env.DUCK_AGENT_HOME) {
+    return normalizeHermesHomeRoot(process.env.DUCK_AGENT_HOME)
   }
 
   if (USER_DATA_OVERRIDE) {
     return path.join(path.resolve(USER_DATA_OVERRIDE), 'duck-agent-home')
   }
 
-  if (IS_WINDOWS) {
-    // A GUI app launched from Explorer inherits the environment block captured
-    // at login, so a HERMES_HOME set via `setx` AFTER login is invisible in
-    // process.env even though the CLI (a fresh shell) sees it. Without this the
-    // backend silently falls back to %LOCALAPPDATA%\duck-agent and reports "No
-    // inference provider configured" despite a valid configured home (#45471).
-    // Consult the live User-scoped registry value before the default below.
-    const fromRegistry = readWindowsUserEnvVar('HERMES_HOME')
-
-    if (fromRegistry) {
-      return normalizeHermesHomeRoot(fromRegistry)
-    }
-  }
-
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
-    const duckAgentHome = path.join(process.env.LOCALAPPDATA, 'duck-agent')
-
-    return duckAgentHome
+    return path.join(process.env.LOCALAPPDATA, 'duck-agent')
   }
 
   return path.join(app.getPath('home'), '.duck-agent')

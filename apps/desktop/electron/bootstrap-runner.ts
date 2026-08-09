@@ -677,7 +677,7 @@ function buildPinArgs(installStamp, { pinCommit = true } = {}) {
 }
 
 function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = true }) {
-  const args = ['--dir', activeRoot, '--duck-agent-home', hermesHome]
+  const args = ['--dir', activeRoot, '--hermes-home', hermesHome]
 
   if (installStamp && installStamp.branch) {
     args.push('--branch', installStamp.branch)
