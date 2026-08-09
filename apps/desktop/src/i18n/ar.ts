@@ -59,14 +59,14 @@ export const ar = defineLocale({
     desktopBootFailedWithMessage: message => `فشل تشغيل سطح المكتب: ${message}`,
     steps: {
       connectingGateway: 'جار الاتصال ببوابة سطح المكتب',
-      loadingSettings: 'جار تحميل إعدادات Hermes',
+      loadingSettings: 'جار تحميل إعدادات Duck Agent',
       loadingSessions: 'جار تحميل الجلسات الأخيرة',
       startingDesktopConnection: 'جار بدء اتصال سطح المكتب',
       startingHermesDesktop: 'جار تشغيل Duck Agent Desktop...'
     },
     errors: {
-      backgroundExited: 'خرجت عملية Hermes الخلفية.',
-      backgroundExitedDuringStartup: 'خرجت عملية Hermes الخلفية أثناء بدء التشغيل.',
+      backgroundExited: 'خرجت عملية Duck Agent الخلفية.',
+      backgroundExitedDuringStartup: 'خرجت عملية Duck Agent الخلفية أثناء بدء التشغيل.',
       backendStopped: 'توقف الخلفية',
       desktopBootFailed: 'فشل تشغيل سطح المكتب',
       gatewayConnectionLost: 'انقطع الاتصال بالبوابة',
@@ -74,7 +74,7 @@ export const ar = defineLocale({
       ipcBridgeUnavailable: 'جسر IPC لسطح المكتب غير متاح.'
     },
     failure: {
-      title: 'تعذر تشغيل Hermes',
+      title: 'تعذر تشغيل Duck Agent',
       description: 'لم تعمل البوابة الخلفية. جرب إحدى خطوات الاسترداد أدناه. لن يحذف ذلك محادثاتك أو إعداداتك.',
       remoteTitle: 'تسجيل الدخول للبوابة البعيدة مطلوب',
       remoteDescription: 'انتهت جلسة البوابة البعيدة. سجل الدخول مرة أخرى لإعادة الاتصال.',
@@ -109,8 +109,8 @@ export const ar = defineLocale({
     copyDetail: 'نسخ التفاصيل',
     copyDetailFailed: 'تعذر نسخ تفاصيل الإشعار',
     backendOutOfDateTitle: 'الخلفية قديمة',
-    backendOutOfDateMessage: 'خلفية Hermes أقدم من إصدار سطح المكتب الحالي وقد لا تعمل كما يجب. حدثهما ليتوافقا.',
-    updateHermes: 'تحديث Hermes',
+    backendOutOfDateMessage: 'خلفية Duck Agent أقدم من إصدار سطح المكتب الحالي وقد لا تعمل كما يجب. حدثهما ليتوافقا.',
+    updateHermes: 'تحديث Duck Agent',
     updateReadyTitle: 'التحديث جاهز',
     updateReadyMessage: count => `${count} تغيير جديد متاح.`,
     seeWhatsNew: 'عرض الجديد',
@@ -149,8 +149,8 @@ export const ar = defineLocale({
       approveAction: 'موافقة',
       rejectAction: 'رفض',
       inputTitle: 'مطلوب إدخال',
-      inputBody: 'ينتظر Hermes ردّك.',
-      turnDoneTitle: 'أنهى Hermes',
+      inputBody: 'ينتظر Duck Agent ردّك.',
+      turnDoneTitle: 'أنهى Duck Agent',
       turnDoneBody: '',
       turnErrorTitle: 'فشلت الجولة',
       backgroundDoneTitle: 'انتهت المهمة في الخلفية',
@@ -286,7 +286,7 @@ export const ar = defineLocale({
     exportConfig: 'تصدير الإعدادات',
     importConfig: 'استيراد الإعدادات',
     resetToDefaults: 'إعادة الافتراضيات',
-    resetConfirm: 'هل تريد إعادة كل الإعدادات إلى افتراضيات Hermes؟',
+    resetConfirm: 'هل تريد إعادة كل الإعدادات إلى افتراضيات Duck Agent؟',
     exportFailed: 'فشل التصدير',
     resetFailed: 'فشلت إعادة الضبط',
     nav: {
@@ -307,7 +307,7 @@ export const ar = defineLocale({
     plugins: {
       title: 'إضافات سطح المكتب',
       blurb:
-        'امتدادات واجهة تُحمّل داخل هذا التطبيق — إما مضمّنة مع البناء، أو موضوعة في مجلد desktop-plugins (بما فيها التي يكتبها Hermes). تعطيل الإضافة يفرغها مباشرة ويبقى بعد إعادة التشغيل.',
+        'امتدادات واجهة تُحمّل داخل هذا التطبيق — إما مضمّنة مع البناء، أو موضوعة في مجلد desktop-plugins (بما فيها التي يكتبها Duck Agent). تعطيل الإضافة يفرغها مباشرة ويبقى بعد إعادة التشغيل.',
       count: n => `${n} مثبتة`,
       openFolder: 'فتح مجلد الإضافات',
       rescan: 'إعادة الفحص',
@@ -324,7 +324,7 @@ export const ar = defineLocale({
         'إشعارات سطح المكتب الأصلية، منفصلة عن التنبيهات داخل التطبيق. هذه محلية على الجهاز — كل حاسوب يحتفظ بإعداداته الخاصة.',
       enableAll: 'تفعيل الإشعارات',
       enableAllDesc: 'إيقافه يصمت كل الإشعارات أدناه.',
-      focusedHint: 'تنبيهات الاكتمال تظهر فقط عندما يكون Hermes في الخلفية.',
+      focusedHint: 'تنبيهات الاكتمال تظهر فقط عندما يكون Duck Agent في الخلفية.',
       kinds: {
         approval: {
           label: 'يلزم الموافقة',
@@ -332,11 +332,11 @@ export const ar = defineLocale({
         },
         input: {
           label: 'يلزم إدخال',
-          description: 'طرح Hermes سؤالا أو يحتاج إلى كلمة مرور أو سر.'
+          description: 'طرح Duck Agent سؤالا أو يحتاج إلى كلمة مرور أو سر.'
         },
         turnDone: {
           label: 'الرد جاهز',
-          description: 'انتهى دور بينما كان Hermes في الخلفية.'
+          description: 'انتهى دور بينما كان Duck Agent في الخلفية.'
         },
         turnError: {
           label: 'فشل الدور',
@@ -348,7 +348,7 @@ export const ar = defineLocale({
         }
       },
       test: 'إرسال إشعار تجريبي',
-      testTitle: 'Hermes',
+      testTitle: 'Duck Agent',
       testBody: 'الإشعارات تعمل.',
       testSent: 'تم إرسال التجربة. إذا لم يظهر شيء، تحقق من أذونات الإشعارات في نظام التشغيل ووضع التركيز/عدم الإزعاج.',
       testUnsupported: 'هذا النظام لا يدعم الإشعارات الأصلية.',
@@ -398,9 +398,9 @@ export const ar = defineLocale({
       translucencyTitle: 'شفافية النافذة',
       translucencyDesc: 'إظهار سطح المكتب من خلال النافذة بالكامل. متاح على macOS وWindows فقط.',
       backdropTitle: 'خلفية النافذة',
-      backdropDesc: 'اختيار مقدار مزج خلفية سطح المكتب مع سطح Hermes.',
+      backdropDesc: 'اختيار مقدار مزج خلفية سطح المكتب مع سطح Duck Agent.',
       reactionsTitle: 'تفاعلات الرسائل',
-      reactionsDesc: 'تفاعلات إيموجي بأسلوب iMessage — تفاعل مع الرسائل، ويمكن لـ Hermes التفاعل مع رسائلك.',
+      reactionsDesc: 'تفاعلات إيموجي بأسلوب iMessage — تفاعل مع الرسائل، ويمكن لـ Duck Agent التفاعل مع رسائلك.',
       embedsTitle: 'التضمينات المضمّنة',
       embedsDesc:
         'تُحمّل المعاينات الغنية من مواقع طرف ثالث (YouTube، X، …). "اسأل" يعرض عنصرا نائبا حتى تسمح لكل واحد؛ "دائما" يحمّلها تلقائيا؛ "إيقاف" يبقي الروابط عادية.',
@@ -427,9 +427,9 @@ export const ar = defineLocale({
       pet: {
         title: 'حيوان أليف',
         intro:
-          'تبنَّ تعويذة petdex متحركة تطفو فوق التطبيق وتتفاعل مع ما يفعله Hermes — تجري أثناء تنفيذ الأدوات، وتحتفل عند النجاح، وتعبس عند الأخطاء.',
+          'تبنَّ تعويذة petdex متحركة تطفو فوق التطبيق وتتفاعل مع ما يفعله Duck Agent — تجري أثناء تنفيذ الأدوات، وتحتفل عند النجاح، وتعبس عند الأخطاء.',
         restartHint:
-          'تحتاج الحيوانات الأليفة إلى إعادة تشغيل سريعة — بدأ التطبيق العامل قبل إضافة هذه الميزة. أغلق Hermes وأعد فتحه، ثم ارجع إلى هنا.',
+          'تحتاج الحيوانات الأليفة إلى إعادة تشغيل سريعة — بدأ التطبيق العامل قبل إضافة هذه الميزة. أغلق Duck Agent وأعد فتحه، ثم ارجع إلى هنا.',
         on: 'تشغيل',
         off: 'إيقاف',
         scaleTitle: 'الحجم',
@@ -556,9 +556,9 @@ export const ar = defineLocale({
       fallbackProviders: 'إدخالات احتياطية بصيغة provider:model لتجربتها إذا فشل النموذج الافتراضي.',
       'display.personality': 'أسلوب المساعد الافتراضي للجلسات الجديدة.',
       'display.showReasoning': 'يعرض أقسام التفكير عندما توفرها الخلفية.',
-      timezone: 'تستخدم عندما يحتاج Hermes إلى سياق الوقت المحلي. اتركها فارغة لاستخدام منطقة النظام.',
+      timezone: 'تستخدم عندما يحتاج Duck Agent إلى سياق الوقت المحلي. اتركها فارغة لاستخدام منطقة النظام.',
       'agent.imageInputMode': 'يتحكم في طريقة إرسال مرفقات الصور إلى النموذج.',
-      'agent.maxTurns': 'الحد الأعلى لدورات استدعاء الأدوات قبل أن يوقف Hermes التشغيل.',
+      'agent.maxTurns': 'الحد الأعلى لدورات استدعاء الأدوات قبل أن يوقف Duck Agent التشغيل.',
       'terminal.cwd': 'مجلد المشروع الافتراضي لعمل الأدوات والطرفية.',
       'terminal.persistentShell': 'يحافظ على حالة الصدفة بين الأوامر عندما تدعمها الخلفية.',
       'terminal.envPassthrough': 'متغيرات البيئة التي تمرر إلى تنفيذ الأدوات.',
@@ -567,8 +567,8 @@ export const ar = defineLocale({
       'terminal.modalImage': 'الصورة المستخدمة عند اختيار Modal.',
       'terminal.daytonaImage': 'الصورة المستخدمة عند اختيار Daytona.',
       'codeExecution.mode': 'مدى تقييد تنفيذ الكود بالمشروع الحالي.',
-      fileReadMaxChars: 'أقصى عدد أحرف يستطيع Hermes قراءته من ملف واحد في الطلب.',
-      'approvals.mode': 'كيف يتعامل Hermes مع الأوامر التي تحتاج موافقة صريحة.',
+      fileReadMaxChars: 'أقصى عدد أحرف يستطيع Duck Agent قراءته من ملف واحد في الطلب.',
+      'approvals.mode': 'كيف يتعامل Duck Agent مع الأوامر التي تحتاج موافقة صريحة.',
       'approvals.timeout': 'مدة انتظار طلبات الموافقة قبل انتهاء المهلة.',
       'security.redactSecrets': 'يخفي الأسرار المكتشفة من المحتوى المرئي للنموذج قدر الإمكان.',
       'checkpoints.enabled': 'ينشئ لقطات رجوع قبل تعديلات الملفات.',
@@ -583,10 +583,10 @@ export const ar = defineLocale({
       'stt.enabled': 'يفعل التفريغ الصوتي المحلي أو عبر مزود.',
       'stt.elevenlabs.languageCode': 'رمز لغة ISO-639-3 اختياري. اتركه فارغاً للاكتشاف التلقائي.',
       'updates.nonInteractiveLocalChanges':
-        'عندما يحدّث Hermes نفسه من التطبيق دون موجه طرفية، احتفظ بتعديلات المصدر المحلية أو تجاهلها.'
+        'عندما يحدّث Duck Agent نفسه من التطبيق دون موجه طرفية، احتفظ بتعديلات المصدر المحلية أو تجاهلها.'
     },
     about: {
-      heading: 'حول Hermes',
+      heading: 'حول Duck Agent',
       version: value => `الإصدار ${value}`,
       versionUnavailable: 'الإصدار غير متاح',
       updates: 'التحديثات',
@@ -604,7 +604,7 @@ export const ar = defineLocale({
       lastChecked: age => `آخر تحقق ${age}`,
       justNowSuffix: 'الآن',
       automaticUpdates: 'التحديثات التلقائية',
-      automaticUpdatesDesc: 'اسمح لـ Hermes بالتحقق من التحديثات وتثبيتها.',
+      automaticUpdatesDesc: 'اسمح لـ Duck Agent بالتحقق من التحديثات وتثبيتها.',
       branchCommit: (branch, commit) => `${branch} عند ${commit}`,
       never: 'أبدا',
       justNow: 'الآن',
@@ -620,7 +620,7 @@ export const ar = defineLocale({
       searchPlaceholder: 'بحث…',
       noResults: 'لا توجد نتائج',
       systemDefault: 'إعداد النظام الافتراضي',
-      loading: 'جار تحميل إعدادات Hermes...',
+      loading: 'جار تحميل إعدادات Duck Agent...',
       emptyTitle: 'لا توجد إعدادات',
       emptyDesc: 'لا يحتوي هذا القسم على إعدادات قابلة للتعديل.',
       failedLoad: 'فشل تحميل الإعدادات',
@@ -630,7 +630,7 @@ export const ar = defineLocale({
     },
     quickEntry: {
       enabledTitle: 'الإدخال السريع',
-      enabledDesc: 'استدعِ محرّرا صغيرا من أي مكان باختصار عام وأرسل طلبا دون فتح Hermes.',
+      enabledDesc: 'استدعِ محرّرا صغيرا من أي مكان باختصار عام وأرسل طلبا دون فتح Duck Agent.',
       shortcutTitle: 'اختصار الإدخال السريع',
       shortcutDesc: 'يحتاج إلى مفتاح تعديل واحد على الأقل، مثل CommandOrControl+Shift+Space.',
       active: 'الاختصار مفعّل.',
@@ -663,7 +663,7 @@ export const ar = defineLocale({
       title: 'اتصال البوابة',
       envOverride: 'تجاوز من البيئة',
       intro:
-        'يشغّل Duck Agent Desktop بوابة محلية خاصة افتراضياً. استخدم بوابة بعيدة عندما تريد أن يتحكم هذا التطبيق بخلفية Hermes تعمل مسبقاً على جهاز آخر أو خلف وكيل موثوق.',
+        'يشغّل Duck Agent Desktop بوابة محلية خاصة افتراضياً. استخدم بوابة بعيدة عندما تريد أن يتحكم هذا التطبيق بخلفية Duck Agent تعمل مسبقاً على جهاز آخر أو خلف وكيل موثوق.',
       appliesTo: 'ينطبق على',
       allProfiles: 'كل الملفات الشخصية',
       defaultConnection: 'الاتصال الافتراضي لكل ملف شخصي لا يملك تجاوزاً خاصاً.',
@@ -672,14 +672,14 @@ export const ar = defineLocale({
       envOverrideTitle: 'متغيرات البيئة تتحكم في جلسة سطح المكتب هذه.',
       envOverrideDesc: 'أزل HERMES_DESKTOP_REMOTE_URL و HERMES_DESKTOP_REMOTE_TOKEN لاستخدام الإعداد المحفوظ أدناه.',
       localTitle: 'بوابة محلية',
-      localDesc: 'تشغيل خلفية Hermes خاصة على localhost. هذا هو الافتراضي ويعمل دون اتصال.',
+      localDesc: 'تشغيل خلفية Duck Agent خاصة على localhost. هذا هو الافتراضي ويعمل دون اتصال.',
       inheritTitle: 'استخدام البوابة الافتراضية',
       inheritDesc: 'إزالة التجاوز الخاص بهذا الملف الشخصي واستخدام الاتصال الافتراضي.',
       remoteTitle: 'بوابة بعيدة',
       remoteDesc:
-        'صل واجهة سطح المكتب هذه بخلفية Hermes بعيدة. البوابات المستضافة تستخدم OAuth أو اسم مستخدم وكلمة مرور، والبوابات الذاتية قد تستخدم رمز جلسة.',
+        'صل واجهة سطح المكتب هذه بخلفية Duck Agent بعيدة. البوابات المستضافة تستخدم OAuth أو اسم مستخدم وكلمة مرور، والبوابات الذاتية قد تستخدم رمز جلسة.',
       remoteUrlTitle: 'رابط البوابة البعيدة',
-      remoteUrlDesc: 'الرابط الأساسي لخلفية لوحة التحكم البعيدة. يمكن استخدام بادئات مسار مثل /hermes.',
+      remoteUrlDesc: 'الرابط الأساسي لخلفية لوحة التحكم البعيدة. يمكن استخدام بادئات مسار مثل /duck-agent.',
       probing: 'جار فحص طريقة مصادقة هذه البوابة...',
       probeError: 'تعذر الوصول إلى هذه البوابة الآن. تحقق من الرابط وستظهر طريقة المصادقة عند الاستجابة.',
       signedIn: 'تم تسجيل الدخول',
@@ -811,7 +811,7 @@ export const ar = defineLocale({
     providers: {
       connectAccount: 'ربط حساب',
       haveApiKey: 'لديك مفتاح API بدلاً من ذلك؟',
-      intro: 'سجل الدخول باشتراكك دون نسخ مفتاح API. يشغّل Hermes تسجيل الدخول من المتصفح لك داخل التطبيق.',
+      intro: 'سجل الدخول باشتراكك دون نسخ مفتاح API. يشغّل Duck Agent تسجيل الدخول من المتصفح لك داخل التطبيق.',
       connected: 'متصل',
       collapse: 'طي',
       connectAnother: 'ربط مزود آخر',
@@ -971,7 +971,7 @@ export const ar = defineLocale({
       placeholder: 'البحث في الحيوانات الأليفة...',
       loading: 'جار تحميل معرض petdex...',
       error: 'تعذّر الوصول إلى معرض petdex.',
-      staleBackend: 'أعد تشغيل Hermes لاستخدام الحيوانات الأليفة — الخادم الخلفي أقدم من هذه الميزة.',
+      staleBackend: 'أعد تشغيل Duck Agent لاستخدام الحيوانات الأليفة — الخادم الخلفي أقدم من هذه الميزة.',
       empty: 'لا توجد حيوانات أليفة مطابقة.',
       turnOff: 'إيقاف التشغيل',
       turnOn: 'تشغيل',
@@ -998,8 +998,8 @@ export const ar = defineLocale({
       hatchComposing: 'جار تجميع الأجزاء...',
       hatchSaving: 'أوشكنا على الانتهاء...',
       namePlaceholder: 'سمِّ حيوانك الأليف',
-      staleBackend: 'حدّث Hermes لتوليد الحيوانات الأليفة.',
-      backgroundHint: 'يمكنك إغلاق هذا — سيُعلِمك Hermes عند الانتهاء.',
+      staleBackend: 'حدّث Duck Agent لتوليد الحيوانات الأليفة.',
+      backgroundHint: 'يمكنك إغلاق هذا — سيُعلِمك Duck Agent عند الانتهاء.',
       slowProviderHint: 'قد يستغرق هذا عدة دقائق',
       remix: 'إعادة مزج',
       remixConfirmTitle: 'إعادة مزج هذا المظهر؟',
@@ -1042,7 +1042,7 @@ export const ar = defineLocale({
       },
       settings: {
         title: 'الإعدادات',
-        detail: 'تكوين Hermes desktop'
+        detail: 'تكوين Duck Agent desktop'
       },
       skills: {
         title: 'المهارات والأدوات',
@@ -1083,10 +1083,10 @@ export const ar = defineLocale({
     noSessions: 'لا توجد جلسات',
     gatewayRunning: 'البوابة تعمل',
     gatewayStopped: 'البوابة متوقفة',
-    hermesActiveSessions: (version, count) => `Hermes ${version} لديه ${count} جلسة نشطة`,
+    hermesActiveSessions: (version, count) => `Duck Agent ${version} لديه ${count} جلسة نشطة`,
     restartGateway: 'إعادة تشغيل البوابة',
     gatewayRestartFailed: 'فشل إعادة تشغيل البوابة.',
-    updateHermes: 'تحديث Hermes',
+    updateHermes: 'تحديث Duck Agent',
     actionRunning: 'الإجراء قيد التشغيل',
     actionDone: 'اكتمل الإجراء',
     actionFailed: 'فشل الإجراء',
@@ -1253,7 +1253,7 @@ export const ar = defineLocale({
       },
       MATRIX_USER_ID: {
         label: 'معرّف مستخدم البوت',
-        placeholder: '@hermes:example.org'
+        placeholder: '@duck-agent:example.org'
       },
       MATRIX_ALLOWED_USERS: {
         label: 'معرّفات مستخدمي Matrix المسموح بهم',
@@ -1423,7 +1423,7 @@ export const ar = defineLocale({
     topOfHour: 'في بداية كل ساعة',
     everyHourAt: minute => `كل ساعة عند :${minute}`,
     newCron: 'مهمة مجدولة جديدة',
-    emptyDescNew: 'أنشئ مهمة مجدولة لتشغيل Hermes تلقائيا.',
+    emptyDescNew: 'أنشئ مهمة مجدولة لتشغيل Duck Agent تلقائيا.',
     emptyDescSearch: 'لا توجد مهام تطابق البحث.',
     emptyTitleNew: 'لا توجد مهام مجدولة',
     emptyTitleSearch: 'لا توجد نتائج',
@@ -1460,11 +1460,11 @@ export const ar = defineLocale({
     editTitle: 'تحرير المهمة المجدولة',
     createTitle: 'إنشاء مهمة مجدولة',
     editDesc: 'عدل الجدول والرسالة.',
-    createDesc: 'اضبط مهمة يشغلها Hermes تلقائيا.',
+    createDesc: 'اضبط مهمة يشغلها Duck Agent تلقائيا.',
     nameLabel: 'الاسم',
     namePlaceholder: 'مثال: الملخص الصباحي',
     promptLabel: 'الرسالة',
-    promptPlaceholder: 'ماذا تريد من Hermes أن يفعل؟',
+    promptPlaceholder: 'ماذا تريد من Duck Agent أن يفعل؟',
     frequencyLabel: 'التكرار',
     deliverLabel: 'التسليم',
     customScheduleLabel: 'جدول مخصص',
@@ -1590,7 +1590,7 @@ export const ar = defineLocale({
       copyPath: 'نسخ المسار',
       removeFromSidebar: 'إخفاء من الشريط الجانبي',
       createFailed: 'تعذّر إنشاء المشروع',
-      deleteConfirm: 'هذا يزيل المشروع المحفوظ من Hermes. تبقى الملفات ومستودعات git وأشجار العمل دون تغيير.',
+      deleteConfirm: 'هذا يزيل المشروع المحفوظ من Duck Agent. تبقى الملفات ومستودعات git وأشجار العمل دون تغيير.',
       startWork: 'شجرة عمل جديدة',
       newWorktreeTitle: 'شجرة عمل جديدة',
       newWorktreeDesc: 'سمِّ الفرع لشجرة العمل هذه.',
@@ -1664,10 +1664,10 @@ export const ar = defineLocale({
   composer: {
     message: 'الرسالة',
     wakingProfile: profile => `جار إيقاظ ${profile}`,
-    placeholderStarting: 'جار بدء Hermes...',
+    placeholderStarting: 'جار بدء Duck Agent...',
     placeholderReconnecting: 'جار إعادة الاتصال...',
     placeholderFollowUp: 'اكتب متابعة...',
-    newSessionPlaceholders: ['اسأل Hermes عن شيء...', 'اطلب من Hermes تنفيذ مهمة...', 'ابدأ محادثة جديدة...'],
+    newSessionPlaceholders: ['اسأل Duck Agent عن شيء...', 'اطلب من Duck Agent تنفيذ مهمة...', 'ابدأ محادثة جديدة...'],
     followUpPlaceholders: ['اكتب متابعة...', 'أضف توجيها...', 'اسأل سؤالا آخر...'],
     startVoice: 'بدء الصوت',
     openDirective: 'فتح',
@@ -1702,7 +1702,7 @@ export const ar = defineLocale({
       '/resume': 'استئناف جلسة سابقة',
       '/details': 'التحكم في مستوى تفاصيل النص',
       '/copy': 'نسخ التحديد أو آخر رسالة من المساعد',
-      '/quit': 'الخروج من hermes'
+      '/quit': 'الخروج من duck-agent'
     },
     hotkeyDescs: {
       'composer.mention': 'الإشارة إلى الملفات والمجلدات والروابط وgit',
@@ -1717,7 +1717,7 @@ export const ar = defineLocale({
     attachUrlTitle: 'إرفاق رابط',
     attachUrlDesc: 'أضف رابطا إلى الرسالة.',
     urlPlaceholder: 'https://example.com',
-    urlHintPre: 'سيقرأ Hermes الرابط ضمن السياق.',
+    urlHintPre: 'سيقرأ Duck Agent الرابط ضمن السياق.',
     attach: 'إرفاق',
     queued: count => `${count} في الطابور`,
     attachmentOnly: 'إرفاق فقط',
@@ -1819,7 +1819,7 @@ export const ar = defineLocale({
       createPr: 'إنشاء PR',
       openPr: 'فتح PR',
       ghMissing: 'ثبّت GitHub CLI (gh) وسجّل الدخول لفتح طلبات السحب',
-      agentShip: 'اطلب من Hermes فتح PR',
+      agentShip: 'اطلب من Duck Agent فتح PR',
       agentShipPrompt: 'راجع التغييرات الحالية، وأودعها برسالة إيداع تقليدية واضحة، وادفع الفرع، وافتح طلب سحب.',
       newBranch: 'فرع جديد',
       branchOffFrom: base => `فرع جديد من ${base}`,
@@ -1835,9 +1835,9 @@ export const ar = defineLocale({
       fetch: 'جار التنزيل...',
       pull: 'أوشكنا على الانتهاء...',
       pydeps: 'جار الإنهاء...',
-      update: 'جار تحديث Hermes...',
+      update: 'جار تحديث Duck Agent...',
       rebuild: 'جار إعادة بناء تطبيق سطح المكتب...',
-      restart: 'جار إعادة تشغيل Hermes...',
+      restart: 'جار إعادة تشغيل Duck Agent...',
       done: 'اكتمل التحديث',
       manual: 'التحديث من الطرفية',
       guiSkew: 'تحديث تطبيق سطح المكتب',
@@ -1847,33 +1847,33 @@ export const ar = defineLocale({
     checkFailedTitle: 'تعذّر التحقق من التحديثات',
     tryAgain: 'إعادة المحاولة',
     notAvailableTitle: 'التحديث غير متاح',
-    unsupportedMessage: 'لا يمكن لهذا الإصدار من Hermes تحديث نفسه من داخل التطبيق.',
+    unsupportedMessage: 'لا يمكن لهذا الإصدار من Duck Agent تحديث نفسه من داخل التطبيق.',
     connectionRetry: 'تحقق من اتصالك وأعد المحاولة.',
     latestBody: 'أنت تستخدم أحدث إصدار.',
     latestBodyBackend: 'الواجهة الخلفية تعمل بأحدث إصدار.',
     allSetTitle: 'كل شيء جاهز',
     availableTitle: 'يتوفر تحديث جديد',
-    availableBody: 'إصدار جديد من Hermes جاهز للتثبيت.',
+    availableBody: 'إصدار جديد من Duck Agent جاهز للتثبيت.',
     availableTitleBackend: 'يتوفر تحديث للواجهة الخلفية',
-    availableBodyBackend: 'إصدار أحدث من واجهة Hermes الخلفية المتصلة جاهز للتثبيت.',
+    availableBodyBackend: 'إصدار أحدث من واجهة Duck Agent الخلفية المتصلة جاهز للتثبيت.',
     availableBodyNoChangelog: 'إصدار أحدث جاهز. ملاحظات الإصدار غير متاحة لنوع التثبيت هذا.',
     updateNow: 'التحديث الآن',
     maybeLater: 'ربما لاحقا',
     moreChanges: count => `+ ${count} تغيير${count === 1 ? '' : 'ات'} إضافي مُضمَّن.`,
     manualTitle: 'التحديث من الطرفية',
-    manualBody: 'لقد ثبّتت Hermes من سطر الأوامر، لذا تُجرى التحديثات من هناك أيضا. الصق هذا في طرفيتك:',
-    manualPickedUp: 'سيلتقط Hermes الإصدار الجديد في المرة التالية التي تشغّله فيها.',
+    manualBody: 'لقد ثبّتت Duck Agent من سطر الأوامر، لذا تُجرى التحديثات من هناك أيضا. الصق هذا في طرفيتك:',
+    manualPickedUp: 'سيلتقط Duck Agent الإصدار الجديد في المرة التالية التي تشغّله فيها.',
     guiSkewTitle: 'تحديث تطبيق سطح المكتب',
     guiSkewBody:
-      'تم تحديث الواجهة الخلفية، لكن حزمة تطبيق سطح المكتب هذه لم تتغير. حدّث أو أعد تثبيت تطبيق Hermes لسطح المكتب (ملف AppImage / ‎.deb / ‎.rpm) لمطابقته.',
+      'تم تحديث الواجهة الخلفية، لكن حزمة تطبيق سطح المكتب هذه لم تتغير. حدّث أو أعد تثبيت تطبيق Duck Agent لسطح المكتب (ملف AppImage / ‎.deb / ‎.rpm) لمطابقته.',
     copy: 'نسخ',
     copied: 'تم النسخ',
     done: 'تم',
     applyingBody:
-      'يتولّى مُحدِّث Hermes المهمة في نافذته الخاصة ويعيد فتح Hermes تلقائيا عند الانتهاء. الرجاء عدم إعادة فتح Hermes بنفسك أثناء التحديث.',
+      'يتولّى مُحدِّث Duck Agent المهمة في نافذته الخاصة ويعيد فتح Duck Agent تلقائيا عند الانتهاء. الرجاء عدم إعادة فتح Duck Agent بنفسك أثناء التحديث.',
     applyingBodyBackend:
-      'تطبّق الواجهة الخلفية البعيدة التحديث وستعيد التشغيل. يعيد Hermes الاتصال تلقائيا عند عودتها.',
-    applyingClose: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Hermes فتح نفسه تلقائيا.',
+      'تطبّق الواجهة الخلفية البعيدة التحديث وستعيد التشغيل. يعيد Duck Agent الاتصال تلقائيا عند عودتها.',
+    applyingClose: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Duck Agent فتح نفسه تلقائيا.',
     errorTitle: 'لم يكتمل التحديث',
     errorBody: 'لا داعي للقلق — لم يُفقد شيء. يمكنك إعادة المحاولة الآن.',
     notNow: 'ليس الآن',
@@ -1894,7 +1894,7 @@ export const ar = defineLocale({
       skipped: 'تم التخطي',
       failed: 'فشل'
     },
-    oneTimeTitle: 'يحتاج Hermes إلى تثبيت لمرة واحدة',
+    oneTimeTitle: 'يحتاج Duck Agent إلى تثبيت لمرة واحدة',
     unsupportedDesc: platform =>
       `التثبيت التلقائي عند أول تشغيل غير متاح على ${platform} بعد. افتح الطرفية وشغّل الأمر أدناه، ثم أعد تشغيل هذا التطبيق. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.`,
     installCommand: 'أمر التثبيت',
@@ -1903,12 +1903,12 @@ export const ar = defineLocale({
     installTo: 'سيتم التثبيت في',
     retryAfterRun: 'لقد شغّلته -- إعادة المحاولة',
     failedTitle: 'فشل التثبيت',
-    settingUpTitle: 'جار إعداد وكيل Hermes',
+    settingUpTitle: 'جار إعداد وكيل Duck Agent',
     finishingTitle: 'جار الإنهاء',
     failedDesc:
-      'فشلت إحدى خطوات التثبيت. على Windows، قد يحدث هذا إذا كان هناك نسخة أخرى من Hermes CLI أو تطبيق سطح المكتب قيد التشغيل. أوقف أي نسخ Hermes قيد التشغيل، ثم أعد المحاولة. تحقق من التفاصيل أدناه أو من سجل سطح المكتب للحصول على النص الكامل.',
+      'فشلت إحدى خطوات التثبيت. على Windows، قد يحدث هذا إذا كان هناك نسخة أخرى من Duck Agent CLI أو تطبيق سطح المكتب قيد التشغيل. أوقف أي نسخ Duck Agent قيد التشغيل، ثم أعد المحاولة. تحقق من التفاصيل أدناه أو من سجل سطح المكتب للحصول على النص الكامل.',
     activeDesc:
-      'هذا إعداد لمرة واحدة. يقوم مثبّت Hermes بتنزيل التبعيات وتهيئة جهازك. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.',
+      'هذا إعداد لمرة واحدة. يقوم مثبّت Duck Agent بتنزيل التبعيات وتهيئة جهازك. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.',
     progress: (completed, total) => `اكتملت ${completed} من ${total} خطوة`,
     currentStage: stage => ` -- الآن: ${stage}`,
     fetchingManifest: 'جار جلب بيان المثبّت...',
@@ -1927,8 +1927,8 @@ export const ar = defineLocale({
   onboarding: {
     headerTitle: 'لنُعِدّ لك Duck Agent',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',
-    preparingInstall: 'يُكمل Hermes التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
-    starting: 'جار بدء Hermes...',
+    preparingInstall: 'يُكمل Duck Agent التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
+    starting: 'جار بدء Duck Agent...',
     lookingUpProviders: 'جار البحث عن المزوّدين...',
     collapse: 'طي',
     otherProviders: 'مزودون آخرون',
@@ -1936,7 +1936,7 @@ export const ar = defineLocale({
     chooseLater: 'سأختار مزوّدا لاحقا',
     recommended: 'موصى به',
     connected: 'متصل',
-    featuredPitch: 'اشتراك واحد، أكثر من 300 نموذج متقدم — الطريقة الموصى بها لتشغيل Hermes',
+    featuredPitch: 'اشتراك واحد، أكثر من 300 نموذج متقدم — الطريقة الموصى بها لتشغيل Duck Agent',
     fireworksPitch: 'نماذج مفتوحة سريعة مع استضافة Fireworks.',
     openRouterPitch: 'مفتاح واحد لمئات النماذج — خيار افتراضي جيد',
     apiKeyOptions: {
@@ -1959,7 +1959,7 @@ export const ar = defineLocale({
       local: {
         short: 'مستضاف ذاتيا',
         description:
-          'وجّه Hermes إلى نقطة نهاية محلية أو مستضافة ذاتيا متوافقة مع OpenAI (vLLM، llama.cpp، Ollama، إلخ).'
+          'وجّه Duck Agent إلى نقطة نهاية محلية أو مستضافة ذاتيا متوافقة مع OpenAI (vLLM، llama.cpp، Ollama، إلخ).'
       }
     },
     backToSignIn: 'العودة إلى تسجيل الدخول',
@@ -1972,8 +1972,8 @@ export const ar = defineLocale({
     update: 'تحديث',
     flowSubtitles: {
       pkce: 'يفتح المتصفح لتسجيل الدخول ثم يتابع هنا',
-      device_code: 'يفتح صفحة تحقق في المتصفح — يتصل Hermes تلقائياً',
-      loopback: 'يفتح المتصفح لتسجيل الدخول — يتصل Hermes تلقائياً',
+      device_code: 'يفتح صفحة تحقق في المتصفح — يتصل Duck Agent تلقائياً',
+      loopback: 'يفتح المتصفح لتسجيل الدخول — يتصل Duck Agent تلقائياً',
       external: 'سجل الدخول مرة واحدة في الطرفية ثم عد إلى المحادثة'
     },
     startingSignIn: provider => `جار بدء تسجيل الدخول لـ ${provider}...`,
@@ -1984,11 +1984,11 @@ export const ar = defineLocale({
     pickDifferentProvider: 'اختر مزوداً آخر',
     signInWith: provider => `تسجيل الدخول عبر ${provider}`,
     openedBrowser: provider => `فتحنا ${provider} في المتصفح.`,
-    authorizeThere: 'صرّح لـ Hermes هناك.',
+    authorizeThere: 'صرّح لـ Duck Agent هناك.',
     copyAuthCode: 'انسخ رمز التفويض وألصقه أدناه.',
     pasteAuthCode: 'ألصق رمز التفويض',
     reopenAuthPage: 'إعادة فتح صفحة التفويض',
-    autoBrowser: provider => `فتحنا ${provider} في المتصفح. صرّح لـ Hermes هناك وسيتم الاتصال تلقائياً دون نسخ أو لصق.`,
+    autoBrowser: provider => `فتحنا ${provider} في المتصفح. صرّح لـ Duck Agent هناك وسيتم الاتصال تلقائياً دون نسخ أو لصق.`,
     reopenSignInPage: 'إعادة فتح صفحة تسجيل الدخول',
     waitingAuthorize: 'بانتظار التفويض...',
     externalPending: provider =>
@@ -2163,7 +2163,7 @@ export const ar = defineLocale({
     binaryTitle: 'يبدو هذا ملفا ثنائيا',
     binaryBody: label => `قد تعرض معاينة ${label} نصا غير قابل للقراءة.`,
     largeTitle: 'هذا الملف كبير',
-    largeBody: (label, size) => `حجم ${label} هو ${size}. سيعرض Hermes أول 512 KB فقط.`,
+    largeBody: (label, size) => `حجم ${label} هو ${size}. سيعرض Duck Agent أول 512 KB فقط.`,
     previewAnyway: 'معاينة على أي حال',
     truncated: 'عرض أول 512 KB.',
     noInlineTitle: 'لا توجد معاينة مضمّنة',
@@ -2201,26 +2201,26 @@ export const ar = defineLocale({
       serverNotFound: 'الخادم غير موجود',
       failedToLoad: 'فشل تحميل المعاينة',
       tryAgain: 'إعادة المحاولة',
-      restarting: 'جار إعادة تشغيل Hermes...',
-      askRestart: 'اطلب من Hermes إعادة تشغيل الخادم',
-      lookingRestart: taskId => `يبحث Hermes عن خادم معاينة لإعادة تشغيله (${taskId})`,
+      restarting: 'جار إعادة تشغيل Duck Agent...',
+      askRestart: 'اطلب من Duck Agent إعادة تشغيل الخادم',
+      lookingRestart: taskId => `يبحث Duck Agent عن خادم معاينة لإعادة تشغيله (${taskId})`,
       restartingTitle: 'جار إعادة تشغيل خادم المعاينة',
-      restartingMessage: 'يعمل Hermes في الخلفية. راقب كونسول المعاينة لمتابعة التقدم.',
+      restartingMessage: 'يعمل Duck Agent في الخلفية. راقب كونسول المعاينة لمتابعة التقدم.',
       startRestartFailed: message => `تعذّر بدء إعادة تشغيل الخادم: ${message}`,
       restartFailed: 'فشلت إعادة تشغيل الخادم',
       hideConsole: 'إخفاء كونسول المعاينة',
       showConsole: 'إظهار كونسول المعاينة',
       hideDevTools: 'إخفاء DevTools المعاينة',
       openDevTools: 'فتح DevTools المعاينة',
-      finishedRestarting: message => `أنهى Hermes إعادة تشغيل خادم المعاينة${message ? `: ${message}` : ''}`,
+      finishedRestarting: message => `أنهى Duck Agent إعادة تشغيل خادم المعاينة${message ? `: ${message}` : ''}`,
       failedRestarting: message => `فشلت إعادة تشغيل الخادم: ${message}`,
       unknownError: 'خطأ غير معروف',
       restartedTitle: 'تمت إعادة تشغيل خادم المعاينة',
       reloadingNow: 'جار إعادة تحميل المعاينة الآن.',
       restartFailedTitle: 'فشلت إعادة تشغيل المعاينة',
-      restartFailedMessage: 'تعذّر على Hermes إعادة تشغيل الخادم.',
+      restartFailedMessage: 'تعذّر على Duck Agent إعادة تشغيل الخادم.',
       stillWorking:
-        'لا يزال Hermes يعمل، لكن لم تصل نتيجة إعادة التشغيل بعد. قد يكون أمر الخادم قيد التشغيل في المقدمة.',
+        'لا يزال Duck Agent يعمل، لكن لم تصل نتيجة إعادة التشغيل بعد. قد يكون أمر الخادم قيد التشغيل في المقدمة.',
       workspaceReloading: 'تغيّرت مساحة العمل، جار إعادة تحميل المعاينة',
       fileChanged: url => `تغيّر الملف، جار إعادة تحميل المعاينة: ${url}`,
       filesChanged: (count, url) => `${count} تغييرات ملفات، جار إعادة تحميل المعاينة: ${url}`,
@@ -2581,7 +2581,7 @@ export const ar = defineLocale({
       success: platform => `تم التسليم إلى ${platform}. استأنف هنا في أي وقت.`,
       systemNote: platform => `↻ تم التسليم إلى ${platform} — استأنف هنا في أي وقت.`,
       failed: error => `فشل التسليم: ${error}`,
-      timedOut: 'انتهت المهلة في انتظار البوابة. هل `hermes gateway` قيد التشغيل؟'
+      timedOut: 'انتهت المهلة في انتظار البوابة. هل `duck-agent gateway` قيد التشغيل؟'
     }
   },
   errors: {
