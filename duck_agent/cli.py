@@ -153,28 +153,23 @@ def run_work(goal: str, workflow: str = 'code') -> int:
     print(f'Duck-Agent · {workflow.capitalize()} · {goal}')
     print(f'  Plan · not run   (workflow: {workflow}, goal framed, nothing executed yet)')
 
-    os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
-    try:
-        from hermes_cli.main import main as hermes_main
-    except ImportError as exc:
-        print(f'  {workflow.capitalize()} · unavailable   ({exc})', file=sys.stderr)
-        return 1
-
-    # Frame the goal as a governed workflow prompt (harness-agnostic; the
-    # primary harness owns execution). Status is honest: reported, not verified.
+    # Frame the goal as a governed workflow prompt. Status is honest: we report
+    # what the harness did, never upgraded to verified unless it completed.
     framed = (
         f'[Duck-Agent {workflow} workflow]\n'
         f'Goal: {goal}\n'
-        'Please treat this as a governed task: explain the plan, do the work, '
+        'Treat this as a governed task: explain the plan, do the work, '
         'then report what actually ran. Do not claim verification you did not perform.'
     )
 
+    execution = _resolve_harness()
     started = time.time()
-    print(f'  {workflow.capitalize()} · running   (invoking primary harness)')
+    print(f'  {workflow.capitalize()} · running   (harness: {execution["name"]})')
     try:
-        code = hermes_main([framed])
-    except SystemExit as exc:
-        code = exc.code or 0
+        if execution['kind'] == 'grok':
+            code = _run_grok_single(framed, cwd=os.getcwd())
+        else:
+            code = _run_runtime(framed)
     except Exception as exc:  # noqa: BLE001
         print(f'  {workflow.capitalize()} · failed     ({exc})', file=sys.stderr)
         return 1
@@ -183,9 +178,50 @@ def run_work(goal: str, workflow: str = 'code') -> int:
     if code == 0:
         print(f'  {workflow.capitalize()} · reported done  (took {elapsed}s; not independently verified)')
     else:
-        print(f'  {workflow.capitalize()} · failed     (harness exited {code} after {elapsed}s)')
+        print(f'  {workflow.capitalize()} · failed     (harness exited {code} after {elapsed}s)', file=sys.stderr)
         return code
     return 0
+
+
+def _resolve_harness():
+    """Pick the primary harness: Grok Build (the grok binary) first, else the
+    Hermes-derived runtime. Grok Build is the product's primary harness."""
+    import shutil
+
+    grok_exe = shutil.which('grok') or os.environ.get('GROK_BIN')
+    if grok_exe:
+        return {'kind': 'grok', 'name': f'Grok Build ({grok_exe})', 'exe': grok_exe}
+    return {'kind': 'runtime', 'name': 'Duck-Agent runtime'}
+
+
+def _run_grok_single(prompt: str, cwd: str | None = None) -> int:
+    """Run a single headless Grok Build turn (grok --single), printing its output."""
+    import subprocess
+
+    exe = os.environ.get('GROK_BIN') or 'grok'
+    result = subprocess.run(
+        [exe, '--single', prompt],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    if result.stdout:
+        print(result.stdout.rstrip())
+    if result.stderr:
+        print(result.stderr.rstrip(), file=sys.stderr)
+    return result.returncode
+
+
+def _run_runtime(prompt: str) -> int:
+    """Fallback: invoke the Hermes-derived runtime's chat with the goal."""
+    os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
+    try:
+        from hermes_cli.main import main as hermes_main
+    except ImportError as exc:
+        raise RuntimeError(f'runtime unavailable: {exc}') from exc
+    result = hermes_main()
+    return int(result) if result is not None else 0
 
 
 def main(argv: list[str] | None=None) -> int:
