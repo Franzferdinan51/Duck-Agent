@@ -36,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser('workflows', help='List governed workflows')
     sub.add_parser('capabilities', help='List available capabilities')
     sub.add_parser('update', help='Update Duck-Agent from its own repository (Franzferdinan51/Duck-Agent)')
+    work = sub.add_parser('work', help='Run a governed OMH-style workflow (plan|research|code|operate) through the primary harness')
+    work.add_argument('goal', help='The goal to achieve')
+    work.add_argument('--workflow', '-w', default='code', choices=list(WORKFLOWS), help='Workflow to run (default: code)')
     return parser
 
 def print_status() -> int:
@@ -132,13 +135,68 @@ def run_update(argv: list[str] | None = None) -> int:
     print('Duck-Agent is up to date.')
     return 0
 
+def run_work(goal: str, workflow: str = 'code') -> int:
+    """Run a governed workflow step with OMH-style evidence status.
+
+    This folds oh-my-hermes' core operating model into the Duck-Agent CLI:
+    a request becomes an explicit capability, executed through the primary
+    harness, with status reported as stage+evidence rather than a naked
+    \"done\" claim. Work is NEVER reported as verified unless the underlying
+    run actually completed.
+    """
+    import time
+
+    if workflow not in WORKFLOWS:
+        print(f'Unknown workflow: {workflow!r}. Choosely one of: {", ".join(WORKFLOWS)}', file=sys.stderr)
+        return 2
+
+    print(f'Duck-Agent · {workflow.capitalize()} · {goal}')
+    print(f'  Plan · not run   (workflow: {workflow}, goal framed, nothing executed yet)')
+
+    os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
+    try:
+        from hermes_cli.main import main as hermes_main
+    except ImportError as exc:
+        print(f'  {workflow.capitalize()} · unavailable   ({exc})', file=sys.stderr)
+        return 1
+
+    # Frame the goal as a governed workflow prompt (harness-agnostic; the
+    # primary harness owns execution). Status is honest: reported, not verified.
+    framed = (
+        f'[Duck-Agent {workflow} workflow]\n'
+        f'Goal: {goal}\n'
+        'Please treat this as a governed task: explain the plan, do the work, '
+        'then report what actually ran. Do not claim verification you did not perform.'
+    )
+
+    started = time.time()
+    print(f'  {workflow.capitalize()} · running   (invoking primary harness)')
+    try:
+        code = hermes_main([framed])
+    except SystemExit as exc:
+        code = exc.code or 0
+    except Exception as exc:  # noqa: BLE001
+        print(f'  {workflow.capitalize()} · failed     ({exc})', file=sys.stderr)
+        return 1
+    elapsed = round(time.time() - started, 1)
+
+    if code == 0:
+        print(f'  {workflow.capitalize()} · reported done  (took {elapsed}s; not independently verified)')
+    else:
+        print(f'  {workflow.capitalize()} · failed     (harness exited {code} after {elapsed}s)')
+        return code
+    return 0
+
+
 def main(argv: list[str] | None=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.home:
         os.environ['DUCK_AGENT_HOME'] = args.home
     command = args.command or 'chat'
-    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update}
+    if command == 'work':
+        return run_work(getattr(args, 'goal', ''), workflow=getattr(args, 'workflow', 'code'))
+    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work}
     return handlers[command]()
 if __name__ == '__main__':
     raise SystemExit(main())

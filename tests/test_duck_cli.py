@@ -55,6 +55,23 @@ class DuckCliTests(unittest.TestCase):
         result = self.run_cli("update")
         self.assertIn("not a git checkout", result.stderr)
 
+    def test_work_rejects_unknown_workflow(self):
+        result = self.run_cli("work", "do something", "--workflow", "bogus")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
+
+    def test_work_requires_goal(self):
+        result = self.run_cli("work")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("required", result.stderr)
+
+    def test_work_accepts_valid_workflow(self):
+        # Argparse should accept a real workflow + goal; reaching the harness
+        # is out of scope here (needs the runtime env), so we just assert the
+        # argument contract parses and it doesn't pass argparse.
+        result = self.run_cli("work", "a goal", "--workflow", "research")
+        self.assertNotIn("invalid choice", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
