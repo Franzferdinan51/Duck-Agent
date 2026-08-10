@@ -66,10 +66,23 @@ class DuckCliTests(unittest.TestCase):
         self.assertIn("required", result.stderr)
 
     def test_work_accepts_valid_workflow(self):
-        # Argparse should accept a real workflow + goal; reaching the harness
-        # is out of scope here (needs the runtime env), so we just assert the
-        # argument contract parses and it doesn't pass argparse.
-        result = self.run_cli("work", "a goal", "--workflow", "research")
+        # Argparse should accept a real workflow + goal without an argparse error.
+        # Set GROK_BIN to a nonexistent path AND override PATH so the harness
+        # resolution falls back — we only assert the argument contract, not a
+        # real (slow, key-requiring) grok invocation.
+        env = os.environ.copy()
+        env.pop("HERMES_HOME", None)
+        env["DUCK_AGENT_HOME"] = "/tmp/duck-agent-cli-test-home"
+        env["GROK_BIN"] = "/nonexistent/grok"
+        result = subprocess.run(
+            [sys.executable, "-m", "duck_agent.cli", "work", "a goal", "--workflow", "research"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
         self.assertNotIn("invalid choice", result.stderr)
 
 
