@@ -2859,7 +2859,7 @@ async function applyUpdates(opts = {}) {
       // the GUI button's contract: append --branch <current> for non-main
       // checkouts, keep it bare for main so the card stays clean.
       const updateRoot = resolveUpdateRoot()
-      let command = 'hermes update'
+      let command = 'duck-agent update'
 
       try {
         const head = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: updateRoot })
@@ -2869,7 +2869,7 @@ async function applyUpdates(opts = {}) {
           const branch = await resolveHealedBranch(updateRoot, current)
 
           if (branch !== 'main') {
-            command = `hermes update --branch ${branch}`
+            command = `duck-agent update --branch ${branch}`
           }
         }
       } catch {
@@ -3285,9 +3285,9 @@ async function applyUpdatesPosixInApp(opts: any) {
   const hermes = resolveHermesCliBinary(updateRoot)
 
   if (!hermes) {
-    emitUpdateProgress({ stage: 'manual', message: 'hermes update', percent: null })
+    emitUpdateProgress({ stage: 'manual', message: 'duck-agent update', percent: null })
 
-    return { ok: true, manual: true, command: 'hermes update', hermesRoot: updateRoot }
+    return { ok: true, manual: true, command: 'duck-agent update', hermesRoot: updateRoot }
   }
 
   // ── Pre-flight state.db integrity guard (#68474) ──
@@ -3358,9 +3358,9 @@ async function applyUpdatesPosixInApp(opts: any) {
   })) as any
 
   if (updated.code !== 0) {
-    emitUpdateProgress({ stage: 'error', message: 'hermes update failed.', error: updated.error || 'update-failed' })
+    emitUpdateProgress({ stage: 'error', message: 'duck-agent update failed.', error: updated.error || 'update-failed' })
 
-    return { ok: false, error: 'hermes update failed' }
+    return { ok: false, error: 'duck-agent update failed' }
   }
 
   emitUpdateProgress({ stage: 'rebuild', message: 'Rebuilding the desktop app…', percent: 60 })
@@ -3426,7 +3426,7 @@ async function applyUpdatesPosixInApp(opts: any) {
     const outcome = decideRelaunchOutcome({ underUnpacked, sandboxOk })
 
     if (outcome === 'relaunch') {
-      emitUpdateProgress({ stage: 'restart', message: 'Restarting Hermes…', percent: 100 })
+      emitUpdateProgress({ stage: 'restart', message: 'Restarting Duck Agent…', percent: 100 })
       // Preserve launch context across the re-exec: replay the original args
       // (filtered of Electron internals) and the env/cwd that define which
       // backend/profile/root this instance talks to. Without this the

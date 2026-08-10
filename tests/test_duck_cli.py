@@ -41,8 +41,19 @@ class DuckCliTests(unittest.TestCase):
     def test_help_has_hermes_style_commands(self):
         result = self.run_cli("--help")
         self.assertEqual(result.returncode, 0)
-        for command in ("chat", "doctor", "workflows", "capabilities"):
+        for command in ("chat", "doctor", "workflows", "capabilities", "update"):
             self.assertIn(command, result.stdout)
+
+    def test_update_absent_runtime_fails_cleanly(self):
+        # A temp home with no runtime checkout: duck-agent update must refuse
+        # cleanly with the install hint, not raise or touch anything.
+        result = self.run_cli("update")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Franzferdinan51/Duck-Agent", result.stderr)
+
+    def test_update_no_runtime_says_reinstall(self):
+        result = self.run_cli("update")
+        self.assertIn("not a git checkout", result.stderr)
 
 
 if __name__ == "__main__":

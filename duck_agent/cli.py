@@ -10,10 +10,18 @@ WORKFLOWS = {'plan': 'Turn a goal into an explicit, reviewable plan before execu
 CAPABILITIES = {'planning': 'plan', 'research': 'research', 'coding': 'code', 'operations': 'operate', 'evidence': 'Every reported result distinguishes planned, running, reported, and verified.'}
 
 def duck_home() -> Path:
-    """Return Duck-Agent's isolated state directory; never default to ~/.duck-agent."""
+    """Return Duck-Agent's isolated state directory.
+
+    Defaults to ~/.duck-agent on macOS/Linux and %LOCALAPPDATA%\\duck-agent on
+    Windows, mirroring the desktop runtime. Never inherits Hermes's home.
+    """
     configured = os.environ.get('DUCK_AGENT_HOME')
     if configured:
         return Path(configured).expanduser()
+    if os.name == 'nt':
+        local = os.environ.get('LOCALAPPDATA')
+        if local:
+            return Path(local) / 'duck-agent'
     return Path.home() / '.duck-agent'
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser('backends', help='List available model backends')
     sub.add_parser('workflows', help='List governed workflows')
     sub.add_parser('capabilities', help='List available capabilities')
+    sub.add_parser('update', help='Update Duck-Agent from its own repository (Franzferdinan51/Duck-Agent)')
     return parser
 
 def print_status() -> int:
@@ -81,13 +90,55 @@ def run_chat() -> int:
     hermes_main()
     return 0
 
+DUCK_AGENT_REPO = 'https://github.com/Franzferdinan51/Duck-Agent.git'
+
+def run_update(argv: list[str] | None = None) -> int:
+    """Update Duck-Agent's own runtime repository.
+
+    Works like ``hermes update`` — fetch + pull the active checkout — but it
+    pulls **Duck-Agent's own** repository (Franzferdinan51/Duck-Agent), never
+    the upstream Hermes repo. The runtime is expected to be a git checkout of
+    this fork; if its origin points somewhere else we surface that rather than
+    silently mutating a foreign tree.
+    """
+    import subprocess
+
+    home = duck_home()
+    runtime = home / 'runtime'
+
+    if not (runtime / '.git').exists():
+        print(f'Duck-Agent runtime is not a git checkout at {runtime}.', file=sys.stderr)
+        print('Reinstall Duck-Agent from https://github.com/Franzferdinan51/Duck-Agent', file=sys.stderr)
+        return 1
+
+    origin = subprocess.run(['git', 'config', '--get', 'remote.origin.url'], cwd=runtime, capture_output=True, text=True)
+    origin_url = (origin.stdout or '').strip()
+
+    if origin_url and 'Duck-Agent' not in origin_url:
+        print(f'Duck-Agent runtime origin is {origin_url!r}, which is not the Duck-Agent fork.', file=sys.stderr)
+        print('Refusing to update a foreign checkout. Set origin to https://github.com/Franzferdinan51/Duck-Agent.git', file=sys.stderr)
+        return 1
+
+    print(f'Updating Duck-Agent runtime at {runtime}')
+    for cmd in (['git', 'fetch', 'origin'], ['git', 'pull', '--ff-only', 'origin', 'main']):
+        print('  $ ' + ' '.join(cmd))
+        r = subprocess.run(cmd, cwd=runtime, capture_output=True, text=True, timeout=600)
+        print(r.stdout, end='')
+        if r.stderr:
+            print(r.stderr, end='', file=sys.stderr)
+        if r.returncode != 0:
+            print(f'Duck-Agent update failed at `{" ".join(cmd)}`.', file=sys.stderr)
+            return r.returncode
+    print('Duck-Agent is up to date.')
+    return 0
+
 def main(argv: list[str] | None=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.home:
         os.environ['DUCK_AGENT_HOME'] = args.home
     command = args.command or 'chat'
-    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat}
+    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update}
     return handlers[command]()
 if __name__ == '__main__':
     raise SystemExit(main())
