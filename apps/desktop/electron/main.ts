@@ -525,19 +525,18 @@ if (INSTALL_STAMP) {
 // HERMES_HOME — the user-facing root for everything Duck-Agent-related. Mirrors
 // scripts/install.ps1's $HermesHome and scripts/install.sh's $HERMES_HOME.
 //
-// Duck-Agent uses its OWN home directory, not Hermes's. Hermes also defaults to
-// ~/.hermes (macOS/Linux) and %LOCALAPPDATA%\hermes (Windows) for its install,
-// config, sessions, and logs. Sharing that directory would let Duck-Agent and
-// Hermes overwrite each other's state, so every default lives under a
-// duck-agent-namespaced root and the two agents can never collide:
+// Duck-Agent reuses the Hermes default profile (the user's existing
+// ~/.hermes install) as its local runtime source of truth. This keeps a single
+// runtime tree on disk and stops the Duck-Agent update process from `git pull`ing
+// the Hermes repo into a second clone at ~/.duck-agent/runtime.
 //
 // Defaults:
-//   Windows: %LOCALAPPDATA%\duck-agent
-//   macOS / Linux: ~/.duck-agent
+//   Windows: %LOCALAPPDATA%\hermes   (Hermes default profile)
+//   macOS / Linux: ~/.hermes          (Hermes default profile)
 //
 // HERMES_DESKTOP_USER_DATA_DIR (used by test:desktop:fresh) puts the sandbox
 // HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
-// touches the user's real ~/.duck-agent / %LOCALAPPDATA%\duck-agent.
+// touches the user's real ~/.hermes.
 function resolveHermesHome() {
   // Duck-Agent is locally standalone: never inherit Hermes's HERMES_HOME.
   // The only supported local override is DUCK_AGENT_HOME.
@@ -550,10 +549,10 @@ function resolveHermesHome() {
   }
 
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, 'duck-agent')
+    return path.join(process.env.LOCALAPPDATA, 'hermes')
   }
 
-  return path.join(app.getPath('home'), '.duck-agent')
+  return path.join(app.getPath('home'), '.hermes')
 }
 
 const HERMES_HOME = resolveHermesHome()
@@ -564,10 +563,13 @@ function pathWithHermesManagedNode(...entries) {
   return [...managed, ...entries, process.env.PATH].filter(Boolean).join(path.delimiter)
 }
 
-// ACTIVE_HERMES_ROOT — the canonical mutable Hermes install. Same path
-// install.ps1 / install.sh use, so a desktop-only user and a CLI-only user end
-// up with identical layouts and can share one install.
-const ACTIVE_HERMES_ROOT = path.join(HERMES_HOME, 'runtime')
+// ACTIVE_HERMES_ROOT — the canonical mutable Hermes install. Because Duck-Agent
+// shares the Hermes default profile, ACTIVE_HERMES_ROOT is the user's
+// `~/.hermes/hermes-agent/` checkout (the directory Hermes's own installer
+// creates and `hermes update` keeps up to date). This is the path Duck-Agent's
+// updater `git pull`s and `hermes serve` is launched from, so a desktop-only
+// user and a CLI-only user end up driving the same runtime checkout.
+const ACTIVE_HERMES_ROOT = path.join(HERMES_HOME, 'hermes-agent')
 // VENV_ROOT — venv lives inside the repo, exactly like install.ps1 does it.
 const VENV_ROOT = path.join(ACTIVE_HERMES_ROOT, 'venv')
 // BOOTSTRAP_COMPLETE_MARKER — written by the first-launch bootstrap runner
