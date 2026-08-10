@@ -39,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     work = sub.add_parser('work', help='Run a governed OMH-style workflow (plan|research|code|operate) through the primary harness')
     work.add_argument('goal', help='The goal to achieve')
     work.add_argument('--workflow', '-w', default='code', choices=list(WORKFLOWS), help='Workflow to run (default: code)')
+    sub.add_parser('setup', help='Configure the primary harness (Grok Build API key) and local providers')
     return parser
 
 def print_status() -> int:
@@ -224,6 +225,60 @@ def _run_runtime(prompt: str) -> int:
     return int(result) if result is not None else 0
 
 
+def run_setup() -> int:
+    """Interactively configure Duck-Agent's primary harness.
+
+    Detects the installed Grok Build binary, checks for GROK_API_KEY, and lets
+    the user paste it (stored only in ~/.duck-agent/.env — never printed,
+    never committed). Also notes local-provider setup. This is the guided path
+    to making ``duck-agent work`` actually complete turns.
+    """
+    import getpass
+
+    home = duck_home()
+    env_file = home / '.env'
+    grok_key = os.environ.get('GROK_API_KEY', '')
+    harness = _resolve_harness()
+
+    print(f'Duck-Agent setup · state home: {home}')
+    print(f'Primary harness: {harness["name"]}')
+    print(f'GROK_API_KEY currently set: {("yes" if grok_key else "no")}')
+
+    if harness['kind'] != 'grok':
+        print('  (Grok Build binary not on PATH; setup will still write GROK_API_KEY)')
+
+    if grok_key:
+        print('GROK_API_KEY is already configured. Nothing to do.')
+        return 0
+
+    home.mkdir(parents=True, exist_ok=True)
+    print('Paste your xAI Grok Build API key (https://console.x.ai) — input is hidden:')
+    try:
+        user_key = getpass.getpass('GROK_API_KEY: ').strip()
+    except Exception:  # e.g. no TTY; fall back to a stable placeholder path
+        print('(no interactive prompt available; leaving GROK_API_KEY unset)', file=sys.stderr)
+        return 1
+
+    if not user_key:
+        print('No key entered; leaving GROK_API_KEY unset.', file=sys.stderr)
+        return 1
+
+    # Write/merge into the .env (secrets file, not tracked by git).
+    existing = ''
+    if env_file.exists():
+        existing = env_file.read_text()
+    lines = [ln for ln in existing.splitlines() if not ln.startswith('GROK_API_KEY=')]
+    lines.append(f'GROK_API_KEY={user_key}')
+    env_file.write_text('\n'.join(lines) + '\n')
+    try:
+        os.chmod(env_file, 0o600)
+    except Exception:
+        pass
+    print(f'GROK_API_KEY saved to {env_file} (mode 600, not committed).')
+    print("You can now run: duck-agent work '<your goal>'")
+    return 0
+
+
 def main(argv: list[str] | None=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -232,7 +287,7 @@ def main(argv: list[str] | None=None) -> int:
     command = args.command or 'chat'
     if command == 'work':
         return run_work(getattr(args, 'goal', ''), workflow=getattr(args, 'workflow', 'code'))
-    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work}
+    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work, 'setup': run_setup}
     return handlers[command]()
 if __name__ == '__main__':
     raise SystemExit(main())
