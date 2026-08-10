@@ -192,7 +192,7 @@ app.include_router(_memory_oauth_router)
 def _resolve_session_token() -> str:
     return os.environ.get('HERMES_DASHBOARD_SESSION_TOKEN') or secrets.token_urlsafe(32)
 _SESSION_TOKEN = _resolve_session_token()
-_SESSION_HEADER_NAME = 'X-Duck Agent-Session-Token'
+_SESSION_HEADER_NAME = 'X-Duck-Agent-Session-Token'
 _SSH_OWNER_NONCE: Optional[str] = None
 
 def _apply_ssh_session_token(token: str) -> None:
@@ -240,7 +240,7 @@ def _require_token(request: Request) -> None:
 
     * **Loopback / ``--insecure`` mode** (``auth_required`` False): the
       ephemeral ``_SESSION_TOKEN`` is injected into the SPA HTML and echoed
-      back via ``X-Duck Agent-Session-Token`` (or the legacy ``Bearer`` header).
+      back via ``X-Duck-Agent-Session-Token`` (or the legacy ``Bearer`` header).
       Validate it here.
     * **Gated / OAuth mode** (``auth_required`` True): ``_SESSION_TOKEN`` is
       NOT injected (the SPA authenticates with a session cookie), so there is
