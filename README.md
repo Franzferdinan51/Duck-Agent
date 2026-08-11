@@ -104,6 +104,20 @@ override the state location.
 
 ### Desktop application
 
+Duck-Agent's default long-term memory is **duckbot-rag-memory** — a persistent
+RAG + 4-tier CoALA memory layer (working / episodic / semantic / procedural) —
+shipped as a curated MCP catalog entry in `optional-mcps/duckbot-memory/`.
+Install it with:
+
+```bash
+duck-agent mcp catalog              # list entries, incl. duckbot-memory
+duck-agent mcp install duckbot-memory   # install the default memory layer
+```
+
+It exposes memory tools (`brain_recall`, `brain_remember`, `brain_forget`,
+`brain_reflect`, `brain_stats`, ...) and loads its own embeddings keys from its
+`.env`, so no key is written to Duck-Agent config.
+
 The Electron application lives under `apps/desktop/` and requires Node.js 22.22 or newer. From the desktop directory:
 
 ```bash
