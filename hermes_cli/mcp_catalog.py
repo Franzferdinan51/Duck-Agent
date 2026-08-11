@@ -25,6 +25,7 @@ See website/docs/user-guide/mcp-catalog.md for user docs.
 See references/mcp-catalog.md (this repo's skill) for the manifest schema.
 """
 from __future__ import annotations
+import os
 import re
 import shutil
 import subprocess
@@ -270,10 +271,21 @@ def _run_bootstrap(cwd: Path, commands: List[str]) -> None:
 
     Each command runs through the shell (so `&&` etc. work). The output is
     streamed to the user's terminal for visibility.
+
+    The child shell intentionally does NOT inherit PYTHONPATH / PYTHONHOME /
+    VIRTUAL_ENV from the invoking process. Those can point at the parent
+    runtime's venv (e.g. an active ~/.hermes venv); leaking them into a
+    catalog install's venv bootstrap causes the fresh venv's pip/interpreter
+    to resolve modules from the parent's site-packages and crash (e.g. the
+    dataclass-slots TypeError from an old pip). `env -u` keeps PATH/HOME so
+    python3/uv etc. still resolve normally.
     """
+    clean_env = os.environ.copy()
+    for var in ('PYTHONPATH', 'PYTHONHOME', 'VIRTUAL_ENV'):
+        clean_env.pop(var, None)
     for cmd in commands:
         print(color(f'  $ {cmd}', Colors.DIM))
-        proc = subprocess.run(cmd, cwd=str(cwd), shell=True)
+        proc = subprocess.run(cmd, cwd=str(cwd), shell=True, env=clean_env)
         if proc.returncode != 0:
             raise CatalogError(f'bootstrap step failed (exit {proc.returncode}): {cmd}')
 
