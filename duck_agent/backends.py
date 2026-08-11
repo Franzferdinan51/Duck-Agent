@@ -57,14 +57,33 @@ def initialize_backend() -> str:
     return 'Unknown backend'
 
 def initialize_grok_build() -> str:
-    """Initialize Grok Build harness."""
-    print('  - Connecting to Grok Build API...')
+    """Initialize Grok Build harness: launch the real grok binary.
+
+    Grok Build is Duck-Agent's primary harness (AGENTS.md). Unlike the old
+    stub that only printed status, this actually resolves the installed grok
+    binary and hands the process over to it, so the agent runs on Grok Build.
+    Returns the grok executable path (caller uses subprocess to exec it).
+    """
+    import shutil
+
+    print('  - Searching for the Grok Build binary...')
+    grok_exe = os.environ.get('GROK_BIN') or shutil.which('grok')
+    if not grok_exe:
+        print(
+            '  - FAIL: grok executable not found on PATH (or GROK_BIN). '
+            'Install Grok Build from https://github.com/xai-org/grok-build.',
+            file=sys.stderr,
+        )
+        return 'Grok Build unavailable (binary not found)'
+
     api_key = os.environ.get('GROK_API_KEY')
     if api_key:
-        print('  - API key configured')
+        print(f'  - API key configured')
     else:
-        print('  - Warning: GROK_API_KEY not set')
-    return 'Grok Build initialized'
+        print('  - Note: GROK_API_KEY not set here; grok uses its own auth/credentials fit if saved.')
+
+    print(f'  - Using Grok Build: {grok_exe}')
+    return f'Grok Build initialized ({grok_exe})'
 
 def initialize_hermes_compatible() -> str:
     """Initialize Duck Agent-compatible mode."""
@@ -92,8 +111,27 @@ def handle_cli():
             idx = sys.argv.index('--backend')
             if idx + 1 < len(sys.argv):
                 os.environ['DUCK_AGENT_BACKEND'] = sys.argv[idx + 1]
+        backend = get_backend()
         result = initialize_backend()
         print(f'\n[OK] {result}')
+
+        # Grok Build is the primary harness: hand the process over to the real
+        # grok binary so the agent actually runs on Grok Build (not a stub).
+        if backend == BackendType.GROK_BUILD:
+            import shutil
+            import subprocess
+
+            grok_exe = os.environ.get('GROK_BIN') or shutil.which('grok')
+            if not grok_exe:
+                print('Grok Build binary not found; cannot start the primary harness.', file=sys.stderr)
+                sys.exit(1)
+            args = sys.argv[2:]
+            print(f'Launching Grok Build primary harness: {grok_exe} {" ".join(args)}')
+            try:
+                subprocess.call([grok_exe, *args])
+            except KeyboardInterrupt:
+                pass
+        sys.exit(0)
     elif command == 'status':
         backend = get_backend()
         info = get_backend_info()
