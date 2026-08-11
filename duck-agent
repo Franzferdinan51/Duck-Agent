@@ -48,45 +48,18 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
 fi
 
 if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
-    echo -e "${GREEN}Duck Agent${NC} v0.1.0"
-    echo "Powered by Grok Build"
-    echo "Backend: ${YELLOW}$BACKEND${NC}"
-    exit 0
+    cd "$SCRIPT_DIR"
+    exec python3 -m duck_agent.cli --version
 fi
 
 if [ "$1" = "--backends" ]; then
-    echo -e "${GREEN}Duck Agent${NC} - Available Backends"
-    echo ""
-    echo "  grok-build         Primary harness with full Grok Build capabilities"
-    echo "  hermes-compatible  Hermes Agent compatibility mode"
-    echo "  prime-agent        Prime Intellect RLM-based agent"
-    echo ""
-    echo "Current: ${YELLOW}$BACKEND${NC}"
-    exit 0
+    cd "$SCRIPT_DIR"
+    exec python3 -m duck_agent.cli backends
 fi
 
 if [ "$1" = "--status" ]; then
-    echo -e "${GREEN}Duck Agent${NC} Status"
-    echo "Backend: ${YELLOW}$BACKEND${NC}"
-    echo "Working directory: $SCRIPT_DIR"
-    case "$BACKEND" in
-      grok-build)
-        echo "Primary harness: Grok Build"
-        echo "Model: ${GROK_MODEL:-grok-3}"
-        if [ -n "$GROK_API_KEY" ]; then
-            echo "API key: configured"
-        else
-            echo "API key: not set (use GROK_API_KEY env var)"
-        fi
-        ;;
-      hermes-compatible)
-        echo "Mode: Hermes Agent compatibility"
-        ;;
-      prime-agent)
-        echo "Mode: Prime Agent RLM"
-        ;;
-    esac
-    exit 0
+    cd "$SCRIPT_DIR"
+    exec python3 -m duck_agent.cli status
 fi
 
 # Normal launch
