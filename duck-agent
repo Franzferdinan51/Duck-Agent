@@ -75,7 +75,7 @@ fi
 # the backend wrapper (interactive launch / positional prompt). Run as a module
 # from the repo root so ``duck_agent`` resolves as a package.
 case "$1" in
-  status|doctor|backends|workflows|capabilities|update|setup|work)
+  chat|status|doctor|backends|workflows|capabilities|update|setup|work)
     cd "$SCRIPT_DIR"
     exec python3 -m duck_agent.cli "$@"
     ;;
