@@ -75,18 +75,32 @@ Provider configuration depends on the selected backend and is supplied through t
 
 ### Duck Agent-style Duck-Agent CLI
 
-Duck-Agent also provides a local-first command surface inspired by the Duck Agent CLI and the governed workflow model of oh-my-duck-agent. It reports what is planned, running, or verified rather than implying that an executor's report is proof of completion.
+Duck-Agent provides a local-first command surface inspired by the Duck Agent CLI
+and the governed workflow model of oh-my-duck-agent. **Grok Build is the primary
+harness**: the CLI hands off real agent work to the installed `grok` binary
+rather than a stub. Status is reported honestly (planned / running / reported),
+never upgraded to "verified" unless an execution actually completed.
+
+Use the `duck-agent` launcher (or `python3 -m duck_agent.cli`) from the repo root:
 
 ```bash
-python3 -m duck_agent.cli --help
-python3 -m duck_agent.cli status
-python3 -m duck_agent.cli doctor
-python3 -m duck_agent.cli backends
-python3 -m duck_agent.cli workflows
-python3 -m duck_agent.cli capabilities
+./duck-agent --help
+./duck-agent status          # backend, Grok Build version, isolation
+./duck-agent version         # Duck-Agent + Grok Build version
+./duck-agent doctor          # verifies grok is present, runnable, and keyed
+./duck-agent backends        # list backends (grok-build = primary)
+./duck-agent workflows       # plan / research / code / operate
+./duck-agent capabilities    # governed capability map
+./duck-agent chat            # launch the Grok Build TUI (primary harness)
+./duck-agent work "<goal>"   # run a governed workflow via grok (headless turn)
+./duck-agent setup            # guide configuring the Grok Build API key
+./duck-agent update           # update Duck-Agent from Franzferdinan51/Duck-Agent
 ```
 
-Available workflows are `plan`, `research`, `code`, and `operate`. Duck-Agent's local state defaults to `~/.duck-agent`; it does not use or overwrite an existing Duck Agent `~/.duck-agent` home. `DUCK_AGENT_HOME` or `--home` can override the state location.
+Available workflows are `plan`, `research`, `code`, and `operate`. Duck-Agent's
+local state defaults to `~/.duck-agent`; it does not use or overwrite an
+existing Duck Agent `~/.duck-agent` home. `DUCK_AGENT_HOME` or `--home` can
+override the state location.
 
 ### Desktop application
 
