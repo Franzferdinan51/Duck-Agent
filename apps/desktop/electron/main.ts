@@ -500,8 +500,15 @@ function loadInstallStamp() {
         })
       }
     } catch (e) {
-      console.warn(`[duck-agent] install-stamp.json found at ${p} , but parsing failed with ${e}`)
-      // Either ENOENT or malformed JSON; try the next candidate
+      // An ENOENT for a candidate is expected (e.g. the packaged
+      // resources/ path is absent during a dev launch) and is NOT a warning:
+      // try the next candidate silently. Any other error (malformed JSON,
+      // permission) is a real problem worth surfacing.
+      if (e && typeof e === 'object' && 'code' in e && e.code === 'ENOENT') {
+        continue
+      }
+
+      console.warn(`[duck-agent] install-stamp.json at ${p} could not be parsed: ${e}`)
     }
   }
 
