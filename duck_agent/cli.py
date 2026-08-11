@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     work.add_argument('--workflow', '-w', default='code', choices=list(WORKFLOWS), help='Workflow to run (default: code)')
     sub.add_parser('setup', help='Configure the primary harness (Grok Build API key) and local providers')
     sub.add_parser('version', help='Show Duck-Agent and primary-harness (Grok Build) versions')
+    sub.add_parser('mcp', help='Manage MCP servers (catalog, list, install, remove) — includes duckbot-memory')
     return parser
 
 def run_version() -> int:
@@ -395,7 +396,49 @@ def run_setup() -> int:
     return 0
 
 
+def run_mcp(argv: list[str]) -> int:
+    """Delegate `mcp <...>` to the runtime's MCP manager.
+
+    The runtime (hermes_cli) owns the MCP catalog/install surface, including
+    duckbot-memory. We hand `mcp catalog|list|install|remove|...` through so
+    our CLI is a thin, consistent front for it and the subcommand isn't
+    swallowed by the grok-backend wrapper in the launcher.
+    """
+    import shutil
+    import subprocess
+
+    os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
+
+    python_exe = None
+    runtime_venv = Path(__file__).resolve().parent.parent / 'venv' / 'bin' / 'python'
+    if runtime_venv.exists():
+        python_exe = str(runtime_venv)
+    else:
+        configured = os.environ.get('DUCK_AGENT_HOME')
+        if configured:
+            alt = Path(configured) / 'runtime' / 'venv' / 'bin' / 'python'
+            if alt.exists():
+                python_exe = str(alt)
+    # Fall back to the default isolated runtime home (~/.duck-agent/runtime).
+    if not python_exe:
+        default = Path.home() / '.duck-agent' / 'runtime' / 'venv' / 'bin' / 'python'
+        if default.exists():
+            python_exe = str(default)
+    python_exe = python_exe or shutil.which('python3') or 'python3'
+
+    r = subprocess.run([python_exe, '-m', 'hermes_cli.main', 'mcp', *argv], capture_output=True, text=True)
+    if r.stdout:
+        print(r.stdout.rstrip())
+    if r.stderr:
+        print(r.stderr.rstrip(), file=sys.stderr)
+    return r.returncode
+
+
 def main(argv: list[str] | None=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == 'mcp':
+        return run_mcp(argv[1:])
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.home:
@@ -403,7 +446,7 @@ def main(argv: list[str] | None=None) -> int:
     command = args.command or 'chat'
     if command == 'work':
         return run_work(getattr(args, 'goal', ''), workflow=getattr(args, 'workflow', 'code'))
-    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work, 'setup': run_setup, 'version': run_version}
+    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work, 'setup': run_setup, 'version': run_version, 'mcp': lambda: run_mcp([])}
     return handlers[command]()
 if __name__ == '__main__':
     raise SystemExit(main())
