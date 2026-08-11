@@ -49,10 +49,31 @@ def print_status() -> int:
     print('Duck-Agent status')
     print(f'Version: {__version__}')
     print(f"Backend: {backend.value} ({info['name']})")
+    grok = _grok_version()
+    if grok:
+        print(f'Grok Build: {grok}')
+    else:
+        print('Grok Build: not found')
     print(f'State home: {home}')
     print(f'Isolated from ~/.hermes: {("yes" if home != Path.home() / ".hermes" else "no")}')
     print(f"State initialized: {('yes' if home.exists() else 'no')}")
     return 0
+
+
+def _grok_version() -> str | None:
+    """Return the installed Grok Build binary's version, or None."""
+    import shutil
+    import subprocess
+
+    exe = os.environ.get('GROK_BIN') or shutil.which('grok')
+    if not exe:
+        return None
+    try:
+        r = subprocess.run([exe, '--version'], capture_output=True, text=True, timeout=15)
+        version = (r.stdout or r.stderr or '').strip()
+        return version.splitlines()[0] if version else None
+    except Exception:  # noqa: BLE001
+        return None
 
 def print_backends() -> int:
     for key, info in get_backend_info().items():
@@ -71,21 +92,45 @@ def print_capabilities() -> int:
     return 0
 
 def print_doctor() -> int:
+    import shutil
+
     home = duck_home()
+    grok_exe = os.environ.get('GROK_BIN') or shutil.which('grok')
+    grok_key = bool(os.environ.get('GROK_API_KEY') or _env_key_from_file(home))
     checks = [
         ('isolated from ~/.hermes', home != Path.home() / '.hermes'),
         ('Python', sys.version_info >= (3, 9)),
         ('repository state', Path.cwd().exists()),
+        ('Grok Build primary harness', bool(grok_exe)),
+        ('GROK_API_KEY configured', grok_key),
     ]
     failed = False
     for name, passed in checks:
         print(f"{('PASS' if passed else 'FAIL')}  {name}")
         failed |= not passed
+    if not grok_exe:
+        print('  hint: install Grok Build (https://github.com/xai-org/grok-build) to enable the primary harness.', file=sys.stderr)
+    elif not grok_key:
+        print('  hint: run `duck-agent setup` to configure GROK_API_KEY.', file=sys.stderr)
     if failed:
         print('Duck-Agent doctor found issues.')
         return 1
     print(f'PASS  state directory target: {home}')
     return 0
+
+
+def _env_key_from_file(home: Path) -> str | None:
+    """Read GROK_API_KEY from ~/.duck-agent/.env if present (secrets file)."""
+    env_file = home / '.env'
+    if not env_file.exists():
+        return None
+    try:
+        for line in env_file.read_text().splitlines():
+            if line.startswith('GROK_API_KEY=') and len(line) > len('GROK_API_KEY='):
+                return line[len('GROK_API_KEY='):]
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 def run_chat() -> int:
     """Start the interactive agent surface through the primary harness.

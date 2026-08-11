@@ -113,11 +113,21 @@ class DuckCliTests(unittest.TestCase):
         result = self.run_cli("--help")
         self.assertIn("setup", result.stdout)
 
+    def test_status_reports_grok_build_line(self):
+        # status should include a Grok Build line (found or not) reflecting the
+        # primary harness, in the test env this is GROK_BIN-independent.
+        result = self.run_cli("status")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(
+            "Grok Build:" in result.stdout,
+            f"expected a Grok Build status line, got: {result.stdout!r}",
+        )
+
     def test_doctor_reports_isolation_ok(self):
         # duck-agent doctor must PASS the ~/.hermes isolation check for a
-        # custom DUCK_AGENT_HOME (non-hermes), not FAIL it.
+        # custom DUCK_AGENT_HOME (non-hermes). Note: without GROK_API_KEY the
+        # doctor may still be non-zero, so assert the isolation line, not exit 0.
         result = self.run_cli("doctor")
-        self.assertEqual(result.returncode, 0)
         self.assertIn("PASS  isolated from ~/.hermes", result.stdout)
 
 
