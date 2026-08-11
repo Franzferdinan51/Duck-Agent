@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import os
+import subprocess
 import sys
 from pathlib import Path
 from . import __version__
@@ -286,14 +287,44 @@ def _run_grok_single(prompt: str, cwd: str | None = None) -> int:
 
 
 def _run_runtime(prompt: str) -> int:
-    """Fallback: invoke the Hermes-derived runtime's chat with the goal."""
+    """Fallback: run a single goal through the Hermes-derived runtime.
+
+    Invokes the runtime as a subprocess so the goal is actually delivered
+    (the runtime's main() reads sys.argv/stdin rather than accepting a
+    positional argument), mirroring _run_grok_single. Returns the exit code.
+    """
+    import shutil
+    import subprocess
+
     os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
-    try:
-        from hermes_cli.main import main as hermes_main
-    except ImportError as exc:
-        raise RuntimeError(f'runtime unavailable: {exc}') from exc
-    result = hermes_main()
-    return int(result) if result is not None else 0
+
+    # Prefer the environment's python that has hermes_cli importable, then the
+    # runtime venv next to this repo, then plain python3 (may lack hermes_cli).
+    python_exe = None
+    runtime_venv = Path(__file__).resolve().parent.parent / 'venv' / 'bin' / 'python'
+    candidates = [runtime_venv if runtime_venv.exists() else None]
+    configured = os.environ.get('DUCK_AGENT_HOME')
+    if configured:
+        alt = Path(configured) / 'runtime' / 'venv' / 'bin' / 'python'
+        if alt.exists():
+            candidates.insert(0, alt)
+    for cand in candidates:
+        if cand:
+            python_exe = str(cand)
+            break
+    python_exe = python_exe or shutil.which('python3') or 'python3'
+
+    r = subprocess.run(
+        [python_exe, '-m', 'hermes_cli.main', prompt],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    if r.stdout:
+        print(r.stdout.rstrip())
+    if r.stderr:
+        print(r.stderr.rstrip(), file=sys.stderr)
+    return r.returncode
 
 
 def run_setup() -> int:

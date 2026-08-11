@@ -123,6 +123,32 @@ class DuckCliTests(unittest.TestCase):
             f"expected a Grok Build status line, got: {result.stdout!r}",
         )
 
+    def test_work_fallback_runtime_passes_prompt(self):
+        # _run_runtime must deliver the goal to the runtime process (previously
+        # dropped). Monkeypatch subprocess.run to assert the prompt arg is passed.
+        import duck_agent.cli as cli
+        import subprocess
+
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["cwd"] = kwargs.get("cwd")
+            class R:
+                returncode = 0
+                stdout = "ok"
+                stderr = ""
+            return R()
+
+        orig = cli.subprocess.run
+        cli.subprocess.run = fake_run
+        try:
+            code = cli._run_runtime("a real goal")
+        finally:
+            cli.subprocess.run = orig
+        self.assertEqual(code, 0)
+        self.assertIn("a real goal", captured["cmd"])
+
     def test_doctor_reports_isolation_ok(self):
         # duck-agent doctor must PASS the ~/.hermes isolation check for a
         # custom DUCK_AGENT_HOME (non-hermes). Note: without GROK_API_KEY the
