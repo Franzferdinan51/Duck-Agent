@@ -22,8 +22,10 @@ install:
   # Pin to a stable ref. Use a full commit SHA at pin time for supply-chain
   # safety; branch names are accepted by the loader but not ideal.
   ref: main
+  # duckbot-rag-memory requires Python 3.12+ (macOS Xcode 3.9 breaks chromadb).
+  # Prefer python3.12/3.13, falling back to python3 only when needed.
   bootstrap:
-    - python3 -m venv .venv
+    - python3.12 -m venv .venv || python3.13 -m venv .venv || python3 -m venv .venv
     - ./.venv/bin/python -m pip install -q --upgrade pip
     - ./.venv/bin/python -m pip install -q -r requirements.txt
 
