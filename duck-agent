@@ -62,16 +62,12 @@ if [ "$1" = "--status" ]; then
     exec python3 -m duck_agent.cli status
 fi
 
-# Normal launch
-echo -e "${GREEN}Duck Agent${NC} - Powered by Grok Build"
-echo -e "Backend: ${YELLOW}$BACKEND${NC}"
-echo ""
-
-# Duck-Agent command surface: run through duck_agent.cli (the real CLI with
+# Normal launch / command dispatch.
+# Run the Duck-Agent command surface through duck_agent.cli (the real CLI with
 # status/work/update/setup/backends/workflows/capabilities/doctor/chat).
-# If $1 is a known command, delegate; otherwise fall through to the backend
-# wrapper (interactive launch / positional prompt). Run as a module from the
-# repo root so ``duck_agent`` resolves as a package (no relative-import error).
+# If $1 is a known command, delegate with no banner; otherwise fall through to
+# the backend wrapper (interactive launch / positional prompt). Run as a module
+# from the repo root so ``duck_agent`` resolves as a package.
 case "$1" in
   status|doctor|backends|workflows|capabilities|update|setup|work)
     cd "$SCRIPT_DIR"
@@ -81,6 +77,11 @@ case "$1" in
     true
     ;;
 esac
+
+# Interactive launcher banner (only for bare launch / positional prompt).
+echo -e "${GREEN}Duck Agent${NC} - Powered by Grok Build"
+echo -e "Backend: ${YELLOW}$BACKEND${NC}"
+echo ""
 
 case "$BACKEND" in
   grok-build)
