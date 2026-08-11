@@ -50,7 +50,7 @@ def print_status() -> int:
     print(f'Version: {__version__}')
     print(f"Backend: {backend.value} ({info['name']})")
     print(f'State home: {home}')
-    print(f'Duck Agent home touched: no (Duck-Agent uses {home})')
+    print(f'Isolated from ~/.hermes: {("yes" if home != Path.home() / ".hermes" else "no")}')
     print(f"State initialized: {('yes' if home.exists() else 'no')}")
     return 0
 
@@ -72,7 +72,11 @@ def print_capabilities() -> int:
 
 def print_doctor() -> int:
     home = duck_home()
-    checks = [('isolated home', home != Path.home() / '.duck-agent'), ('Python', sys.version_info >= (3, 9)), ('repository state', Path.cwd().exists())]
+    checks = [
+        ('isolated from ~/.hermes', home != Path.home() / '.hermes'),
+        ('Python', sys.version_info >= (3, 9)),
+        ('repository state', Path.cwd().exists()),
+    ]
     failed = False
     for name, passed in checks:
         print(f"{('PASS' if passed else 'FAIL')}  {name}")

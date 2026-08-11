@@ -30,7 +30,8 @@ class DuckCliTests(unittest.TestCase):
         result = self.run_cli("status")
         self.assertEqual(result.returncode, 0)
         self.assertIn("/tmp/duck-agent-cli-test-home", result.stdout)
-        self.assertNotIn("/.hermes", result.stdout)
+        # Explicit isolation: Duck-Agent's home must not be ~/.hermes.
+        self.assertIn("Isolated from ~/.hermes: yes", result.stdout)
 
     def test_capabilities_exposes_governed_workflows(self):
         result = self.run_cli("capabilities")
@@ -111,6 +112,13 @@ class DuckCliTests(unittest.TestCase):
     def test_help_lists_setup_command(self):
         result = self.run_cli("--help")
         self.assertIn("setup", result.stdout)
+
+    def test_doctor_reports_isolation_ok(self):
+        # duck-agent doctor must PASS the ~/.hermes isolation check for a
+        # custom DUCK_AGENT_HOME (non-hermes), not FAIL it.
+        result = self.run_cli("doctor")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("PASS  isolated from ~/.hermes", result.stdout)
 
 
 if __name__ == "__main__":
