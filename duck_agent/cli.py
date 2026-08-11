@@ -88,7 +88,29 @@ def print_doctor() -> int:
     return 0
 
 def run_chat() -> int:
-    """Delegate to the Duck Agent-compatible CLI without inheriting Duck Agent storage."""
+    """Start the interactive agent surface through the primary harness.
+
+    Grok Build (the installed ``grok`` binary) is Duck-Agent's primary harness
+    per AGENTS.md. When present, ``chat`` launches the Grok Build TUI so agent
+    work runs through the primary harness. Falls back to the Hermes-derived
+    runtime's chat only when grok is unavailable.
+    """
+    import subprocess
+
+    harness = _resolve_harness()
+
+    if harness['kind'] == 'grok':
+        print(f'Duck-Agent · chat via {harness["name"]}')
+        # Launch the grok TUI interactively (no --single); hand over stdin.
+        try:
+            return subprocess.call(['grok'], cwd=os.getcwd())
+        except FileNotFoundError as exc:
+            print(f'Grok Build is on PATH but could not start: {exc}', file=sys.stderr)
+            return 1
+        except KeyboardInterrupt:
+            return 130
+
+    # Fallback: Hermes-derived runtime chat (no grok binary installed).
     os.environ.setdefault('DUCK_AGENT_HOME', str(duck_home()))
     try:
         from hermes_cli.main import main as hermes_main
