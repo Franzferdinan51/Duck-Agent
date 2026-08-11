@@ -110,11 +110,13 @@ def print_doctor() -> int:
     home = duck_home()
     grok_exe = os.environ.get('GROK_BIN') or shutil.which('grok')
     grok_key = bool(os.environ.get('GROK_API_KEY') or _env_key_from_file(home))
+    grok_runs = bool(grok_exe and _grok_version())
     checks = [
         ('isolated from ~/.hermes', home != Path.home() / '.hermes'),
         ('Python', sys.version_info >= (3, 9)),
         ('repository state', Path.cwd().exists()),
         ('Grok Build primary harness', bool(grok_exe)),
+        ('Grok Build runs (grok --version)', grok_runs),
         ('GROK_API_KEY configured', grok_key),
     ]
     failed = False
