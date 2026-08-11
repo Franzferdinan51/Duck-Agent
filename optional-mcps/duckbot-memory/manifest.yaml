@@ -1,0 +1,48 @@
+# Nous-approved MCP catalog entry — default memory provider.
+# Presence in this directory = approval. Merged via PR review.
+# NOTE: duckbot-rag-memory is Duck-Agent's DEFAULT long-term memory layer and
+# the recommended memory bundled with the agent.
+manifest_version: 1
+
+name: duckbot-memory
+description: >-
+  Persistent RAG + long-term memory for Duck-Agent — the default memory layer.
+  See https://github.com/Franzferdinan51/duckbot-rag-memory
+source: https://github.com/Franzferdinan51/duckbot-rag-memory
+
+# duckbot-rag-memory is a local, stdio MCP server (Python -> ChromaDB) exposing
+# memory tools (brain_recall, brain_remember, brain_forget, brain_reflect,
+# brain_stats, recall_verbatim, ...). This catalog entry installs a copy of the
+# repo and runs its stdio MCP server via the repo venv; the server loads its own
+# .env for embeddings keys (LM Studio / OpenAI / MiniMax / local), so no key is
+# ever written to Duck-Agent's config.
+install:
+  type: git
+  url: https://github.com/Franzferdinan51/duckbot-rag-memory.git
+  # Pin to a stable ref. Use a full commit SHA at pin time for supply-chain
+  # safety; branch names are accepted by the loader but not ideal.
+  ref: main
+  bootstrap:
+    - python3 -m venv .venv
+    - ./.venv/bin/python -m pip install -q --upgrade pip
+    - ./.venv/bin/python -m pip install -q -r requirements.txt
+
+transport:
+  type: stdio
+  command: "${INSTALL_DIR}/scripts/duckbot-memory-mcp.sh"
+
+auth:
+  type: none
+
+post_install: |
+  duckbot-memory is Duck-Agent's default long-term memory layer.
+
+  After install, the full memory toolset is available to the agent when the
+  MCP server connects: brain_recall, brain_remember, brain_forget,
+  brain_reflect, brain_stats, brain_decay_status, recall_verbatim,
+  search_verbatim, watch, doctor, and more.
+
+  The server reads its own .env for embedding provider keys, so no key is
+  written to Duck-Agent's config. Restart your Duck-Agent session so the memory
+  tools are loaded. Query memory from any shell with the bundled `duck-memory`
+  CLI (e.g. ./duck-memory query "What did we decide about X?").
