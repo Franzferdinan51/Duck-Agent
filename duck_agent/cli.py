@@ -41,7 +41,19 @@ def build_parser() -> argparse.ArgumentParser:
     work.add_argument('goal', help='The goal to achieve')
     work.add_argument('--workflow', '-w', default='code', choices=list(WORKFLOWS), help='Workflow to run (default: code)')
     sub.add_parser('setup', help='Configure the primary harness (Grok Build API key) and local providers')
+    sub.add_parser('version', help='Show Duck-Agent and primary-harness (Grok Build) versions')
     return parser
+
+def run_version() -> int:
+    """Show Duck-Agent and the primary harness (Grok Build) version."""
+    print(f'Duck-Agent {__version__}')
+    grok = _grok_version()
+    if grok:
+        print(f'Primary harness (Grok Build): {grok}')
+    else:
+        print('Primary harness (Grok Build): not found')
+    return 0
+
 
 def print_status() -> int:
     home = duck_home()
@@ -389,7 +401,7 @@ def main(argv: list[str] | None=None) -> int:
     command = args.command or 'chat'
     if command == 'work':
         return run_work(getattr(args, 'goal', ''), workflow=getattr(args, 'workflow', 'code'))
-    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work, 'setup': run_setup}
+    handlers = {'status': print_status, 'backends': print_backends, 'workflows': print_workflows, 'capabilities': print_capabilities, 'doctor': print_doctor, 'chat': run_chat, 'update': run_update, 'work': run_work, 'setup': run_setup, 'version': run_version}
     return handlers[command]()
 if __name__ == '__main__':
     raise SystemExit(main())

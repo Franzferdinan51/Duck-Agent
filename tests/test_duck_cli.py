@@ -113,6 +113,14 @@ class DuckCliTests(unittest.TestCase):
         result = self.run_cli("--help")
         self.assertIn("setup", result.stdout)
 
+    def test_version_lists_grok_build_harness(self):
+        result = self.run_cli("version")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(
+            "Primary harness (Grok Build):" in result.stdout,
+            f"expected a Grok Build harness line, got: {result.stdout!r}",
+        )
+
     def test_status_reports_grok_build_line(self):
         # status should include a Grok Build line (found or not) reflecting the
         # primary harness, in the test env this is GROK_BIN-independent.
