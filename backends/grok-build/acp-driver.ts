@@ -35,6 +35,9 @@ export interface AcpTurnOptions {
   cwd?: string
   /** Optional system/persona prompt prepended to the goal. */
   systemPrompt?: string
+  /** Abort the in-flight turn. On abort the promise rejects with an
+   *  'aborted' Error and the child process is terminated. */
+  signal?: AbortSignal
 }
 
 export interface AcpTurnResult {
@@ -64,11 +67,19 @@ export async function runGrokAcpTurn(
   const cli = options.cli ?? 'grok'
   const fullAuto = options.fullAuto ?? false
   const cwd = options.cwd ?? homedir()
+  const signal = options.signal
 
   const text = (options.systemPrompt ? `${options.systemPrompt}\n\n` : '') + goal
 
   return new Promise<AcpTurnResult>((resolve, reject) => {
     let child: ChildProcess
+    // Declared before the abort handler so a pre-aborted signal (which runs
+    // onAbort immediately) never hits a TDZ reference.
+    let settled = false
+    let textAccum = ''
+    let nextId = 1
+    let sessionId: string | null = null
+    let promptSent = false
     try {
       child = spawn(cli, ['--permission-mode', fullAuto ? 'bypassPermissions' : 'default', 'agent', 'stdio'], {
         cwd,
@@ -84,11 +95,22 @@ export async function runGrokAcpTurn(
       return
     }
 
-    let settled = false
-    let textAccum = ''
-    let nextId = 1
-    let sessionId: string | null = null
-    let promptSent = false
+    // External abort: kill the child and reject instead of leaving a running turn.
+    const onAbort = () => {
+      try {
+        child.kill('SIGTERM')
+      } catch {
+        /* ignore */
+      }
+      if (!settled) {
+        settled = true
+        reject(new Error('acp turn aborted'))
+      }
+    }
+    if (signal) {
+      if (signal.aborted) onAbort()
+      else signal.addEventListener('abort', onAbort, { once: true })
+    }
 
     const pending = new Map<number, (m: any) => void>()
 

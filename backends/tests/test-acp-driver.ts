@@ -71,6 +71,21 @@ async function main() {
     assertTrue(r.text.includes('acp-live-ok'), `expected marker in reply; got ${JSON.stringify(r.text.slice(0, 80))}`)
   })
 
+  await test('runGrokAcpTurn rejects immediately when the signal is already aborted', async () => {
+    const ac = new AbortController()
+    ac.abort() // aborted before the call
+    let rejected = false
+    let msg = ''
+    try {
+      await runGrokAcpTurn('x', { cli: '/Users/duckets/.local/bin/grok', signal: ac.signal })
+    } catch (e) {
+      rejected = true
+      msg = (e as Error).message
+    }
+    assertTrue(rejected, 'should reject when signal pre-aborted')
+    assertTrue(msg.includes('aborted'), `expected an aborted error, got ${msg}`)
+  })
+
   console.log('\n========================')
   console.log(`Results: ${passCount} passed, ${failCount} failed, ${skipCount} skipped`)
   process.exit(failCount > 0 ? 1 : 0)
