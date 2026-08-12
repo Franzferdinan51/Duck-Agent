@@ -14,3 +14,11 @@ export {
 } from './harness'
 export { GrokBuildAPIClient, type GrokMessage, type GrokToolCall, type GrokToolDefinition } from './api-client'
 export { loadConfig, type GrokBuildConfig, DEFAULT_CONFIG } from './config'
+export {
+  runGrokAcpTurn,
+  isSignedIn,
+  acpHelpers,
+  type AcpTurnEvents,
+  type AcpTurnOptions,
+  type AcpTurnResult,
+} from './acp-driver'
