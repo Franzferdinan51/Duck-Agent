@@ -10,14 +10,15 @@ const BACKENDS = [
   {
     id: 'grok-build',
     name: 'Grok Build',
-    description: 'Primary harness with full Grok Build capabilities',
+    description:
+      'Primary harness. Agent work (chat/work) runs on the installed grok binary; the Duck-Agent CLI/launcher hands off to it.',
     icon: Zap,
     recommended: true
   },
   {
     id: 'hermes-compatible',
     name: 'Duck-Agent-Compatible',
-    description: 'Duck-Agent compatibility mode',
+    description: 'Duck-Agent compatibility mode (embedded runtime)', 
     icon: Bot
   },
   {
