@@ -173,6 +173,17 @@ class DuckCliTests(unittest.TestCase):
         result = self.run_cli("doctor")
         self.assertIn("PASS  isolated from ~/.hermes", result.stdout)
 
+    def test_doctor_recognizes_grok_login_as_keyed(self):
+        # The ACP path means a signed-in grok (~/.grok/auth.json) makes the
+        # harness usable WITHOUT an api key; doctor must reflect that.
+        import duck_agent.cli as cli
+        self.assertTrue(callable(cli._grok_signed_in))
+        result = self.run_cli("doctor")
+        self.assertTrue(
+            "Grok Build keyed (api key or grok login)" in result.stdout,
+            "doctor should report the keyed check line",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -112,13 +112,18 @@ def print_doctor() -> int:
     grok_exe = os.environ.get('GROK_BIN') or shutil.which('grok')
     grok_key = bool(os.environ.get('GROK_API_KEY') or _env_key_from_file(home))
     grok_runs = bool(grok_exe and _grok_version())
+    # The ACP driver (backends/grok-build/acp-driver.ts) can run the primary
+    # harness with NO api key when the grok CLI is signed in (~/.grok/auth.json).
+    # So the harness is usable if EITHER a key OR a grok.com login is present.
+    grok_login = _grok_signed_in()
+    harness_keyed = grok_key or grok_login
     checks = [
         ('isolated from ~/.hermes', home != Path.home() / '.hermes'),
         ('Python', sys.version_info >= (3, 9)),
         ('repository state', Path.cwd().exists()),
         ('Grok Build primary harness', bool(grok_exe)),
         ('Grok Build runs (grok --version)', grok_runs),
-        ('GROK_API_KEY configured', grok_key),
+        ('Grok Build keyed (api key or grok login)', harness_keyed),
     ]
     failed = False
     for name, passed in checks:
@@ -126,13 +131,22 @@ def print_doctor() -> int:
         failed |= not passed
     if not grok_exe:
         print('  hint: install Grok Build (https://github.com/xai-org/grok-build) to enable the primary harness.', file=sys.stderr)
-    elif not grok_key:
-        print('  hint: run `duck-agent setup` to configure GROK_API_KEY.', file=sys.stderr)
+    elif not harness_keyed:
+        print('  hint: run `duck-agent setup` (api key) or `grok login` (subscription) to enable a grok auth path.', file=sys.stderr)
     if failed:
         print('Duck-Agent doctor found issues.')
         return 1
     print(f'PASS  state directory target: {home}')
     return 0
+
+
+def _grok_signed_in() -> bool:
+    """True when the grok CLI has a grok.com subscription login (~/.grok/auth.json)."""
+    auth = Path.home() / '.grok' / 'auth.json'
+    try:
+        return auth.exists() and auth.stat().st_size > 0
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _env_key_from_file(home: Path) -> str | None:
