@@ -4,6 +4,7 @@ import type { HermesReadDirResult } from '@/global'
 import type * as HermesModule from '@/hermes'
 
 import { discoverRuntimePlugins, watchRuntimePlugins } from './runtime-loader'
+import { sdkImportMap } from '@/sdk/runtime'
 
 // getStatus would supply the connected backend's hermes_home — a REMOTE path in
 // remote mode. The disk scanner must NOT derive the plugin root from it (#66899).
@@ -38,6 +39,10 @@ afterEach(() => {
 })
 
 describe('scanDiskPlugins (#66899)', () => {
+  it('supports upstream Hermes plugins through the SDK compatibility alias', () => {
+    expect(sdkImportMap()['@hermes/plugin-sdk']).toBe(sdkImportMap()['@duck-agent/plugin-sdk'])
+  })
+
   it('scans the Electron-resolved local root, never the backend hermes_home', async () => {
     desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
     readDir.mockResolvedValue({ entries: [] })

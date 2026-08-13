@@ -129,6 +129,25 @@ npm run start
 
 For renderer hot reload during development, use `npm run dev`. The desktop build and runtime use Duck-Agent's isolated local home by default.
 
+#### Hermes Bot Mode
+
+Duck Agent supports NousResearch's [Hermes Bot Mode](https://github.com/NousResearch/Hermes-Bot-Mode)
+as a runtime desktop plugin. It adds named agent profiles, per-agent chats, routines,
+avatars, and bot-to-bot handoffs using the existing profile, session, and cron gateway
+surfaces. The upstream plugin's `@hermes/plugin-sdk` import is supported through Duck
+Agent's compatibility alias, so the plugin can be used without a fork.
+
+Install it into the local desktop plugin directory and reload plugins from the command
+palette or restart the app:
+
+```bash
+git clone --depth 1 https://github.com/NousResearch/Hermes-Bot-Mode.git \
+  ~/.hermes/desktop-plugins/hermes-bots
+```
+
+Advanced profile editing requires the gateway's `profiles.*` RPCs. The roster remains
+usable on older gateways, while generated avatars additionally require an image backend.
+
 ## Repository layout
 
 ```text

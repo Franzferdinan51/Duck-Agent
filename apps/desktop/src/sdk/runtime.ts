@@ -45,10 +45,16 @@ let cached: Record<string, string> | null = null
 export function sdkImportMap(): Record<string, string> {
   cached ??= {
     '@duck-agent/plugin-sdk': shimUrl('__HERMES_PLUGIN_SDK__'),
+    // Hermes Bot Mode is an upstream plugin built against the original SDK
+    // name. Keep the alias so it can run unchanged while Duck Agent evolves
+    // its own branded SDK surface.
+    '@hermes/plugin-sdk': '',
     'react/jsx-dev-runtime': shimUrl('__HERMES_REACT_JSX_DEV__'),
     'react/jsx-runtime': shimUrl('__HERMES_REACT_JSX__'),
     react: shimUrl('__HERMES_REACT__')
   }
+
+  cached['@hermes/plugin-sdk'] = cached['@duck-agent/plugin-sdk']
 
   return cached
 }
