@@ -33,7 +33,7 @@ import { notifyError } from '@/store/notifications'
 import { createPluginContext, type HermesPlugin } from './plugin'
 import { dropPlugin, pluginActive, type PluginKind, publishPlugin } from './plugins-store'
 
-interface LoadOptions {
+export interface LoadOptions {
   /** Absolute plugin.js path (disk plugins) — recorded for reveal/inventory. */
   file?: string
   /** `sha256-<base64>` — verified against the source before evaluation. */
