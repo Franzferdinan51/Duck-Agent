@@ -53,10 +53,17 @@ Grok Build is the primary product direction. The other backend paths provide com
 Clone the repository and inspect the launcher help:
 
 ```bash
-git clone https://github.com/Franzferdinan51/Duck-Agent.git
+git clone --recurse-submodules https://github.com/Franzferdinan51/Duck-Agent.git
 cd Duck-Agent
 chmod +x ./duck-agent
 ./duck-agent --help
+```
+
+If you already cloned the repository, initialize the bundled Bot Mode source before
+building the desktop app:
+
+```bash
+git submodule update --init --recursive
 ```
 
 To select the primary backend explicitly:
