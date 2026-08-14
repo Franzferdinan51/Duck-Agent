@@ -63,6 +63,7 @@ If you already cloned the repository, initialize the bundled Bot Mode source bef
 building the desktop app:
 
 ```bash
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
@@ -138,11 +139,20 @@ For renderer hot reload during development, use `npm run dev`. The desktop build
 
 #### Built-in Bot Mode
 
-Duck Agent bundles NousResearch's [Hermes Bot Mode](https://github.com/NousResearch/Hermes-Bot-Mode)
-as an in-app feature. It adds named agent profiles, per-agent chats, routines, avatars,
-and bot-to-bot handoffs using Duck Agent's own profile, session, and cron gateway surfaces.
-The upstream source is pinned under `apps/desktop/vendor/hermes-bot-mode` and loaded from
-the packaged application through the public plugin SDK.
+Duck Agent vendors the Duck-Agent Bot Mode fork at
+[`Franzferdinan51/Hermes-Bot-Mode`](https://github.com/Franzferdinan51/Hermes-Bot-Mode)
+as an in-app coordination feature. It adds named agent profiles, per-agent chats, routines,
+avatars, and bot-to-bot handoff intent using Duck Agent's profile, session, asset, and cron
+gateway surfaces. The fork is pinned under `apps/desktop/vendor/hermes-bot-mode` and loaded
+from the packaged application through the public plugin SDK.
+
+**Bot Mode is not Duck-Agent's execution harness.** Grok Build CLI remains the primary
+harness for reasoning, planning, tools, and autonomous agent turns. The managed Hermes
+`serve` process is retained only as compatibility/control-plane infrastructure for RPC
+surfaces that have not yet been migrated. Bot handoffs and scheduled routines must resolve
+to Grok Build-backed turns rather than becoming a second Hermes execution path. See
+[`docs/bot-mode-grok-build-boundary.md`](docs/bot-mode-grok-build-boundary.md) for the
+integration contract.
 
 No files are installed to or loaded from `~/.hermes`; Duck Agent only uses its isolated
 `~/.duck-agent` state. Advanced profile editing requires Duck Agent's gateway to expose
