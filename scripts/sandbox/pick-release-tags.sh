@@ -18,6 +18,10 @@
 #   --count   how many tags to emit (default 5, minimum 1). Fewer tags than
 #             requested emits all of them.
 #   --repo    repository to read tags from (default: this checkout).
+#   --allow-empty
+#             emit [] and exit 0 when no release tags exist (for CI, so a
+#             repo with no releases yet goes green with skipped legs
+#             instead of failing every scheduled run).
 #
 # Reads tags from the local checkout, so it needs one fetched with tags
 # (actions/checkout with fetch-depth: 0, or `fetch-tags: true`). A shallow
@@ -30,6 +34,7 @@
 set -euo pipefail
 
 COUNT=5
+ALLOW_EMPTY=0
 # Default to the repository containing this script, resolved through its real
 # path so a symlinked or copied script still reads the checkout it lives in
 # rather than whatever repo the caller happens to be standing in.
@@ -42,6 +47,8 @@ while [ "$#" -gt 0 ]; do
     --repo)
       [ "$#" -ge 2 ] || { echo 'error: --repo needs a value' >&2; exit 1; }
       REPO="$2"; shift 2 ;;
+    --allow-empty)
+      ALLOW_EMPTY=1; shift ;;
     -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; exit 1 ;;
   esac
@@ -74,6 +81,11 @@ mapfile -t tags < <(
 
 total="${#tags[@]}"
 if [ "$total" -eq 0 ]; then
+  if [ "$ALLOW_EMPTY" -eq 1 ]; then
+    echo 'note: no release tags found; emitting empty matrix' >&2
+    printf '[]\n'
+    exit 0
+  fi
   echo "error: no release tags found in $REPO" >&2
   echo '       A shallow clone has no tags: fetch with tags (actions/checkout' >&2
   echo '       with fetch-depth: 0, or fetch-tags: true).' >&2
