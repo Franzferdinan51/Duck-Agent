@@ -22,6 +22,13 @@ name: Install & Update E2E
 # Deliberately NOT on pull_request: a leg takes ~11 minutes of real toolchain
 # installation, and the matrix multiplies that. Updating is release-shaped work,
 # so it is gated on releases and the clock instead.
+#
+# Two preconditions must both hold before a leg can run:
+#   1. the repo has release tags to update FROM;
+#   2. tests/install/install-update-e2e.sh exists -- the harness that performs
+#      the real install and update. It is not in the tree yet, so the legs are
+#      gated on it instead of failing on a missing file the moment a release
+#      tag is cut.
 
 on:
   workflow_dispatch:
@@ -79,6 +86,29 @@ jobs:
           echo "Testing updates from: $tags"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
+  # The legs need a harness that actually installs and updates. It is not in the
+  # tree yet, so gate on its presence: without this, cutting the first release
+  # tag would make every leg fail on a missing file instead of reporting the gap.
+  check-harness:
+    name: Harness present?
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: tests/install
+          sparse-checkout-cone-mode: false
+      - id: check
+        run: |
+          if [ -f tests/install/install-update-e2e.sh ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Install E2E dormant::tests/install/install-update-e2e.sh is missing, so the update/installer legs are skipped. Add the harness to get real install+update coverage."
+          fi
+
   # An empty matrix vector is a strategy *error* in GitHub Actions, not a skip.
   # pick-releases emits `[]` when the repo has no release tags yet (--allow-empty),
   # so both legs must be gated explicitly or every scheduled run fails at strategy
@@ -86,8 +116,8 @@ jobs:
   #
   # `hermes update` -- the route most users take.
   update:
-    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'installer') && needs.pick-releases.outputs.tags != '[]'
-    needs: pick-releases
+    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'installer') && needs.pick-releases.outputs.tags != '[]' && needs.check-harness.outputs.present == 'true'
+    needs: [pick-releases, check-harness]
     strategy:
       # One release breaking is worth knowing about even if another already
       # failed, so let every leg report.
@@ -102,8 +132,8 @@ jobs:
   # Re-running the curl one-liner over an existing checkout: autostash + pull
   # rather than the updater's own git handling.
   installer:
-    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'update') && needs.pick-releases.outputs.tags != '[]'
-    needs: pick-releases
+    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'update') && needs.pick-releases.outputs.tags != '[]' && needs.check-harness.outputs.present == 'true'
+    needs: [pick-releases, check-harness]
     strategy:
       fail-fast: false
       max-parallel: 3
