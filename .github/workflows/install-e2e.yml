@@ -79,9 +79,14 @@ jobs:
           echo "Testing updates from: $tags"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
+  # An empty matrix vector is a strategy *error* in GitHub Actions, not a skip.
+  # pick-releases emits `[]` when the repo has no release tags yet (--allow-empty),
+  # so both legs must be gated explicitly or every scheduled run fails at strategy
+  # evaluation before any leg is created.
+  #
   # `hermes update` -- the route most users take.
   update:
-    if: github.event_name != 'workflow_dispatch' || inputs.route != 'installer'
+    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'installer') && needs.pick-releases.outputs.tags != '[]'
     needs: pick-releases
     strategy:
       # One release breaking is worth knowing about even if another already
@@ -97,7 +102,7 @@ jobs:
   # Re-running the curl one-liner over an existing checkout: autostash + pull
   # rather than the updater's own git handling.
   installer:
-    if: github.event_name != 'workflow_dispatch' || inputs.route != 'update'
+    if: (github.event_name != 'workflow_dispatch' || inputs.route != 'update') && needs.pick-releases.outputs.tags != '[]'
     needs: pick-releases
     strategy:
       fail-fast: false
